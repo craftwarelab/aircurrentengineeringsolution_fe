@@ -1,5 +1,5 @@
-import Link from 'next/link';
-import { Mail, Phone, MapPin } from 'lucide-react';
+import Link from "next/link";
+import { Mail, Phone, MapPin } from "lucide-react";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -20,7 +20,8 @@ export default function Footer() {
               </span>
             </div>
             <p className="text-primary-foreground/90 text-sm">
-              Professional HVAC and ventilation engineering solutions for commercial and industrial applications.
+              Professional HVAC and ventilation engineering solutions for
+              commercial and industrial applications.
             </p>
           </div>
 
@@ -34,22 +35,34 @@ export default function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/about" className="hover:text-accent transition-colors">
+                <Link
+                  href="/about"
+                  className="hover:text-accent transition-colors"
+                >
                   About Us
                 </Link>
               </li>
               <li>
-                <Link href="/services" className="hover:text-accent transition-colors">
+                <Link
+                  href="/services"
+                  className="hover:text-accent transition-colors"
+                >
                   Services
                 </Link>
               </li>
               <li>
-                <Link href="/products" className="hover:text-accent transition-colors">
+                <Link
+                  href="/products"
+                  className="hover:text-accent transition-colors"
+                >
                   Products
                 </Link>
               </li>
               <li>
-                <Link href="/projects" className="hover:text-accent transition-colors">
+                <Link
+                  href="/projects"
+                  className="hover:text-accent transition-colors"
+                >
                   Projects
                 </Link>
               </li>
@@ -61,22 +74,34 @@ export default function Footer() {
             <h3 className="font-semibold text-base mb-4">Services</h3>
             <ul className="space-y-2 text-sm">
               <li>
-                <Link href="/services" className="hover:text-accent transition-colors">
+                <Link
+                  href="/services"
+                  className="hover:text-accent transition-colors"
+                >
                   HVAC Design
                 </Link>
               </li>
               <li>
-                <Link href="/services" className="hover:text-accent transition-colors">
+                <Link
+                  href="/services"
+                  className="hover:text-accent transition-colors"
+                >
                   Installation
                 </Link>
               </li>
               <li>
-                <Link href="/services" className="hover:text-accent transition-colors">
+                <Link
+                  href="/services"
+                  className="hover:text-accent transition-colors"
+                >
                   Maintenance
                 </Link>
               </li>
               <li>
-                <Link href="/services" className="hover:text-accent transition-colors">
+                <Link
+                  href="/services"
+                  className="hover:text-accent transition-colors"
+                >
                   Energy Audits
                 </Link>
               </li>
@@ -97,7 +122,10 @@ export default function Footer() {
               </li>
               <li className="flex items-start space-x-3">
                 <MapPin size={16} className="mt-0.5 flex-shrink-0" />
-                <span>Colombo 7</span>
+                <span>
+                  Air Current engineering solution , No 25 , 3rd floor,Highway
+                  level road, Maharagama.
+                </span>
               </li>
             </ul>
           </div>
@@ -108,7 +136,10 @@ export default function Footer() {
       <div className="border-t border-primary-foreground/20 bg-primary/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
           <div className="flex flex-col md:flex-row justify-between items-center text-sm text-primary-foreground/80">
-            <p>&copy; {currentYear} Air Current Eng. Solution. All rights reserved.</p>
+            <p>
+              &copy; {currentYear} Air Current Eng. Solution. All rights
+              reserved.
+            </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link href="#" className="hover:text-accent transition-colors">
                 Privacy Policy
