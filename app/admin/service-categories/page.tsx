@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,33 +9,60 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getServiceCategories, addServiceCategory, updateServiceCategory, deleteServiceCategory, type ServiceCategory } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  useServiceCategories,
+  useCreateServiceCategory,
+  useUpdateServiceCategory,
+  useDeleteServiceCategory,
+  useSearchServiceCategories,
+  type ServiceCategory,
+  type CreateCategoryRequest,
+  type UpdateCategoryRequest
+} from '@/lib/hooks/use-service-categories';
 import { toast } from 'sonner';
 
 export default function ServiceCategoriesPage() {
-  const [categories, setCategories] = useState<ServiceCategory[]>(getServiceCategories());
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ServiceCategory | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateCategoryRequest>({
     name: '',
     slug: '',
     position: 0,
     is_active: true,
   });
 
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // SWR hooks
+  const { data: allCategories, error: categoriesError, isLoading: categoriesLoading, mutate: mutateCategories } = useServiceCategories();
+  const { data: searchResults, isLoading: searchLoading } = useSearchServiceCategories(searchTerm.trim());
+
+  // API mutation hooks
+  const { trigger: createCategory, isMutating: creatingCategory } = useCreateServiceCategory();
+  const { trigger: updateCategory, isMutating: updatingCategory } = useUpdateServiceCategory();
+  const { trigger: deleteCategory, isMutating: deletingCategory } = useDeleteServiceCategory();
+
+  const isLoading = categoriesLoading || (searchTerm.trim() && searchLoading);
+
+  // Determine which data to display
+  const displayCategories = useMemo(() => {
+    let categories;
+    if (searchTerm.trim()) {
+      categories = searchResults;
+    } else {
+      categories = allCategories;
+    }
+
+    // Ensure we always return an array
+    return Array.isArray(categories) ? categories : [];
+  }, [searchTerm, searchResults, allCategories]);
 
   const resetForm = () => {
     setFormData({
       name: '',
       slug: '',
-      position: categories.length + 1,
+      position: (allCategories?.length || 0) + 1,
       is_active: true,
     });
   };
@@ -55,15 +82,15 @@ export default function ServiceCategoriesPage() {
     });
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     try {
-      const newCategory = addServiceCategory(formData);
-      setCategories(getServiceCategories());
+      await createCategory({ url: `${process.env.NEXT_PUBLIC_API_URL}/services/categories`, data: formData });
+      mutateCategories(); // Refresh the categories list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('Service category added successfully');
-    } catch (error) {
-      toast.error('Failed to add service category');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add service category');
     }
   };
 
@@ -77,39 +104,39 @@ export default function ServiceCategoriesPage() {
     });
   };
 
-  const handleUpdateCategory = () => {
+  const handleUpdateCategory = async () => {
     if (!editingCategory) return;
 
     try {
-      updateServiceCategory(editingCategory.id, formData);
-      setCategories(getServiceCategories());
+      await updateCategory({ categoryId: editingCategory.id, data: formData as UpdateCategoryRequest });
+      mutateCategories(); // Refresh the categories list
       setEditingCategory(null);
       resetForm();
       toast.success('Service category updated successfully');
-    } catch (error) {
-      toast.error('Failed to update service category');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update service category');
     }
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategory = async (categoryId: number) => {
     if (confirm('Are you sure you want to delete this service category?')) {
       try {
-        deleteServiceCategory(categoryId);
-        setCategories(getServiceCategories());
+        await deleteCategory(categoryId.toString());
+        mutateCategories(); // Refresh the categories list
         toast.success('Service category deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete service category');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete service category');
       }
     }
   };
 
-  const handleToggleStatus = (categoryId: string, is_active: boolean) => {
+  const handleToggleStatus = async (categoryId: number, is_active: boolean) => {
     try {
-      updateServiceCategory(categoryId, { is_active });
-      setCategories(getServiceCategories());
+      await updateCategory({ categoryId, data: { is_active } as UpdateCategoryRequest });
+      mutateCategories(); // Refresh the categories list
       toast.success(`Service category ${is_active ? 'activated' : 'deactivated'} successfully`);
-    } catch (error) {
-      toast.error('Failed to update service category status');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update service category status');
     }
   };
 
@@ -178,7 +205,10 @@ export default function ServiceCategoriesPage() {
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddCategory}>Add Category</Button>
+              <Button onClick={handleAddCategory} disabled={creatingCategory}>
+                {creatingCategory && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add Category
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -205,59 +235,74 @@ export default function ServiceCategoriesPage() {
       {/* Categories Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Service Categories ({filteredCategories.length})</CardTitle>
+          <CardTitle>Service Categories ({displayCategories.length})</CardTitle>
           <CardDescription>Manage service categories</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCategories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="font-mono text-sm">{category.slug}</TableCell>
-                  <TableCell>{category.position}</TableCell>
-                  <TableCell>
-                    <Badge variant={category.is_active ? 'default' : 'secondary'}>
-                      {category.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{new Date(category.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditCategory(category)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteCategory(category.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredCategories.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No service categories found matching the search term.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading categories...</span>
             </div>
+          ) : categoriesError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading categories: {categoriesError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Position</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{category.slug}</TableCell>
+                      <TableCell>{category.position}</TableCell>
+                      <TableCell>
+                        <Badge variant={category.is_active ? 'default' : 'secondary'}>
+                          {category.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(category.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditCategory(category)}
+                            disabled={updatingCategory}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteCategory(category.id)}
+                            disabled={deletingCategory}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displayCategories.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No service categories found matching the search term.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -310,7 +355,10 @@ export default function ServiceCategoriesPage() {
             <Button variant="outline" onClick={() => { setEditingCategory(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateCategory}>Update Category</Button>
+            <Button onClick={handleUpdateCategory} disabled={updatingCategory}>
+              {updatingCategory && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Category
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
