@@ -14,10 +14,12 @@ let api: any = null;
 
 if (axios) {
   api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api',
+    baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api',
     timeout: 10000,
+    withCredentials: true,
     headers: {
       'Content-Type': 'application/json',
+      'Accept': 'application/json',
     },
   });
 

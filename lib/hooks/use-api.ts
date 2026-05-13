@@ -30,7 +30,7 @@ export function useApiGet<T>(url: string | null, options?: any) {
 }
 
 // Generic POST hook
-export function useApiPost<T>(url: string) {
+export function useApiPost<T>(key?: string) {
   if (!useSWRMutation) {
     return {
       trigger: () => Promise.reject(new Error('SWR not installed')),
@@ -41,16 +41,16 @@ export function useApiPost<T>(url: string) {
   }
 
   return useSWRMutation(
-    url,
-    async (url: string, { arg }: { arg: any }) => {
-      const response = await api.post(url, arg);
+    key || 'post-mutation',
+    async (key: string, { arg }: { arg: { url: string, data: any } }) => {
+      const response = await api.post(arg.url, arg.data);
       return response.data as T;
     }
   );
 }
 
 // Generic PUT hook
-export function useApiPut<T>(url: string) {
+export function useApiPut<T>(key?: string) {
   if (!useSWRMutation) {
     return {
       trigger: () => Promise.reject(new Error('SWR not installed')),
@@ -61,16 +61,16 @@ export function useApiPut<T>(url: string) {
   }
 
   return useSWRMutation(
-    url,
-    async (url: string, { arg }: { arg: any }) => {
-      const response = await api.put(url, arg);
+    key || 'put-mutation',
+    async (key: string, { arg }: { arg: { url: string, data: any } }) => {
+      const response = await api.put(arg.url, arg.data);
       return response.data as T;
     }
   );
 }
 
 // Generic DELETE hook
-export function useApiDelete<T>(url: string) {
+export function useApiDelete<T>(key?: string) {
   if (!useSWRMutation) {
     return {
       trigger: () => Promise.reject(new Error('SWR not installed')),
@@ -81,10 +81,11 @@ export function useApiDelete<T>(url: string) {
   }
 
   return useSWRMutation(
-    url,
-    async (url: string, { arg }: { arg?: any }) => {
-      const response = await api.delete(url, { data: arg });
-      return response.data as T;
+    key || 'delete-mutation',
+    async (key: string, { arg }: { arg: string }) => {
+      const response = await api.delete(arg);
+      // Handle cases where backend returns null or empty response
+      return (response.data && response.data !== 'null') ? response.data as T : { message: 'Deleted successfully' } as T;
     }
   );
 }

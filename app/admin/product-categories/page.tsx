@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,33 +9,60 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getProductCategories, addProductCategory, updateProductCategory, deleteProductCategory, type ProductCategory } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  useCategories,
+  useCreateCategory,
+  useUpdateCategory,
+  useDeleteCategory,
+  useSearchCategories,
+  type ProductCategory,
+  type CreateCategoryRequest,
+  type UpdateCategoryRequest
+} from '@/lib/hooks/use-categories';
 import { toast } from 'sonner';
 
 export default function ProductCategoriesPage() {
-  const [categories, setCategories] = useState<ProductCategory[]>(getProductCategories());
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ProductCategory | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateCategoryRequest>({
     name: '',
     slug: '',
     position: 0,
     is_active: true,
   });
 
-  const filteredCategories = categories.filter(category =>
-    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    category.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // SWR hooks
+  const { data: allCategories, error: categoriesError, isLoading: categoriesLoading, mutate: mutateCategories } = useCategories();
+  const { data: searchResults, isLoading: searchLoading } = useSearchCategories(searchTerm.trim());
+
+  // API mutation hooks
+  const { trigger: createCategory, isMutating: creatingCategory } = useCreateCategory();
+  const { trigger: updateCategory, isMutating: updatingCategory } = useUpdateCategory();
+  const { trigger: deleteCategory, isMutating: deletingCategory } = useDeleteCategory();
+
+  // Determine which data to display
+  const displayCategories = useMemo(() => {
+    let categories;
+    if (searchTerm.trim()) {
+      categories = searchResults;
+    } else {
+      categories = allCategories;
+    }
+
+    // Ensure we always return an array
+    return Array.isArray(categories) ? categories : [];
+  }, [searchTerm, searchResults, allCategories]);
+
+  const isLoading = categoriesLoading || (searchTerm.trim() && searchLoading);
 
   const resetForm = () => {
     setFormData({
       name: '',
       slug: '',
-      position: categories.length + 1,
+      position: (allCategories?.length || 0) + 1,
       is_active: true,
     });
   };
@@ -55,15 +82,15 @@ export default function ProductCategoriesPage() {
     });
   };
 
-  const handleAddCategory = () => {
+  const handleAddCategory = async () => {
     try {
-      const newCategory = addProductCategory(formData);
-      setCategories(getProductCategories());
+      await createCategory({ url: `${process.env.NEXT_PUBLIC_API_URL}/products/categories`, data: formData });
+      mutateCategories(); // Refresh the categories list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('Product category added successfully');
-    } catch (error) {
-      toast.error('Failed to add product category');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add product category');
     }
   };
 
@@ -77,39 +104,39 @@ export default function ProductCategoriesPage() {
     });
   };
 
-  const handleUpdateCategory = () => {
+  const handleUpdateCategory = async () => {
     if (!editingCategory) return;
 
     try {
-      updateProductCategory(editingCategory.id, formData);
-      setCategories(getProductCategories());
+      await updateCategory({ url: `${process.env.NEXT_PUBLIC_API_URL}/products/categories/${editingCategory.id}`, data: formData as UpdateCategoryRequest });
+      mutateCategories(); // Refresh the categories list
       setEditingCategory(null);
       resetForm();
       toast.success('Product category updated successfully');
-    } catch (error) {
-      toast.error('Failed to update product category');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update product category');
     }
   };
 
-  const handleDeleteCategory = (categoryId: string) => {
+  const handleDeleteCategory = async (categoryId: number) => {
     if (confirm('Are you sure you want to delete this product category?')) {
       try {
-        deleteProductCategory(categoryId);
-        setCategories(getProductCategories());
+        await deleteCategory(`/products/categories/${categoryId}`);
+        mutateCategories(); // Refresh the categories list
         toast.success('Product category deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete product category');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete product category');
       }
     }
   };
 
-  const handleToggleStatus = (categoryId: string, is_active: boolean) => {
+  const handleToggleStatus = async (categoryId: number, is_active: boolean) => {
     try {
-      updateProductCategory(categoryId, { is_active });
-      setCategories(getProductCategories());
+      await updateCategory({ url: `${process.env.NEXT_PUBLIC_API_URL}/products/categories/${categoryId}`, data: { is_active } as UpdateCategoryRequest });
+      mutateCategories(); // Refresh the categories list
       toast.success(`Product category ${is_active ? 'activated' : 'deactivated'} successfully`);
-    } catch (error) {
-      toast.error('Failed to update product category status');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update product category status');
     }
   };
 
@@ -178,7 +205,10 @@ export default function ProductCategoriesPage() {
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddCategory}>Add Category</Button>
+              <Button onClick={handleAddCategory} disabled={creatingCategory}>
+                {creatingCategory && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add Category
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -205,59 +235,74 @@ export default function ProductCategoriesPage() {
       {/* Categories Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Product Categories ({filteredCategories.length})</CardTitle>
+          <CardTitle>Product Categories ({displayCategories.length})</CardTitle>
           <CardDescription>Manage product categories</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredCategories.map((category) => (
-                <TableRow key={category.id}>
-                  <TableCell className="font-medium">{category.name}</TableCell>
-                  <TableCell className="font-mono text-sm">{category.slug}</TableCell>
-                  <TableCell>{category.position}</TableCell>
-                  <TableCell>
-                    <Badge variant={category.is_active ? 'default' : 'secondary'}>
-                      {category.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{new Date(category.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditCategory(category)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteCategory(category.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredCategories.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No product categories found matching the search term.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading categories...</span>
             </div>
+          ) : categoriesError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading categories: {categoriesError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Position</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayCategories.map((category) => (
+                    <TableRow key={category.id}>
+                      <TableCell className="font-medium">{category.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{category.slug}</TableCell>
+                      <TableCell>{category.position}</TableCell>
+                      <TableCell>
+                        <Badge variant={category.is_active ? 'default' : 'secondary'}>
+                          {category.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(category.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditCategory(category)}
+                            disabled={updatingCategory}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteCategory(category.id)}
+                            disabled={deletingCategory}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displayCategories.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  {searchTerm.trim() ? 'No product categories found matching the search term.' : 'No product categories found.'}
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -310,7 +355,10 @@ export default function ProductCategoriesPage() {
             <Button variant="outline" onClick={() => { setEditingCategory(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateCategory}>Update Category</Button>
+            <Button onClick={handleUpdateCategory} disabled={updatingCategory}>
+              {updatingCategory && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Category
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
