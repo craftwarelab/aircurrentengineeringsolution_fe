@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,44 +10,84 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getProductSubcategories, addProductSubcategory, updateProductSubcategory, deleteProductSubcategory, getProductCategories, type ProductSubcategory, type ProductCategory } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  useCreateSubcategory,
+  useUpdateSubcategory,
+  useDeleteSubcategory,
+  type ProductSubcategory,
+  type CreateSubcategoryRequest,
+  type UpdateSubcategoryRequest
+} from '@/lib/hooks/use-subcategories';
+import {
+  useCategories,
+  useCategoryTree,
+  type ProductCategory
+} from '@/lib/hooks/use-categories';
 import { toast } from 'sonner';
 
 export default function ProductSubcategoriesPage() {
-  const [subcategories, setSubcategories] = useState<ProductSubcategory[]>(getProductSubcategories());
-  const [categories] = useState<ProductCategory[]>(getProductCategories());
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState<ProductSubcategory | null>(null);
 
-  const [formData, setFormData] = useState({
-    category_id: '',
+  const [formData, setFormData] = useState<CreateSubcategoryRequest>({
+    category_id: 0,
     name: '',
     slug: '',
     position: 0,
     is_active: true,
   });
 
-  const filteredSubcategories = subcategories.filter(subcategory => {
-    const matchesSearch = subcategory.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         subcategory.slug.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesCategory = categoryFilter === 'all' || subcategory.category_id === categoryFilter;
-    return matchesSearch && matchesCategory;
-  });
+  // SWR hooks
+  const { data: categoryTree, error: subcategoriesError, isLoading: subcategoriesLoading, mutate: mutateSubcategories } = useCategoryTree();
+  const { data: allCategories, error: categoriesError, isLoading: categoriesLoading } = useCategories();
 
-  const getCategoryName = (categoryId: string) => {
-    const category = categories.find(c => c.id === categoryId);
+  // API mutation hooks
+  const { trigger: createSubcategory, isMutating: creatingSubcategory } = useCreateSubcategory();
+  const { trigger: updateSubcategory, isMutating: updatingSubcategory } = useUpdateSubcategory();
+  const { trigger: deleteSubcategory, isMutating: deletingSubcategory } = useDeleteSubcategory();
+
+  // Flatten subcategories from category tree
+  const allSubcategories = useMemo(() => {
+    if (!categoryTree) return [];
+    return categoryTree.flatMap(category => category.subcategories || []);
+  }, [categoryTree]);
+
+  // Determine which data to display
+  const displaySubcategories = useMemo(() => {
+    let subcategories = allSubcategories;
+
+    // Apply search filter (client-side since no search API for subcategories)
+    if (searchTerm.trim()) {
+      subcategories = subcategories.filter(subcategory =>
+        subcategory.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        subcategory.slug.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Apply category filter
+    if (categoryFilter !== 'all') {
+      subcategories = subcategories.filter(subcategory => subcategory.category_id === parseInt(categoryFilter));
+    }
+
+    return subcategories;
+  }, [allSubcategories, searchTerm, categoryFilter]);
+
+  const isLoading = subcategoriesLoading;
+
+  const getCategoryName = (categoryId: number) => {
+    const category = allCategories?.find((c: ProductCategory) => c.id === categoryId);
     return category ? category.name : 'Unknown Category';
   };
 
   const resetForm = () => {
     setFormData({
-      category_id: '',
+      category_id: 0,
       name: '',
       slug: '',
-      position: subcategories.length + 1,
+      position: allSubcategories.length + 1,
       is_active: true,
     });
   };
@@ -67,19 +107,21 @@ export default function ProductSubcategoriesPage() {
     });
   };
 
-  const handleAddSubcategory = () => {
+  const handleAddSubcategory = async () => {
     if (!formData.category_id) {
       toast.error('Please select a parent category');
       return;
     }
     try {
-      const newSubcategory = addProductSubcategory(formData);
-      setSubcategories(getProductSubcategories());
+      // Extract category_id from formData and send the rest as subcategory data
+      const { category_id, ...subcategoryData } = formData;
+      await createSubcategory({ categoryId: category_id, data: subcategoryData });
+      mutateSubcategories(); // Refresh the subcategories list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('Product subcategory added successfully');
-    } catch (error) {
-      toast.error('Failed to add product subcategory');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add product subcategory');
     }
   };
 
@@ -94,7 +136,7 @@ export default function ProductSubcategoriesPage() {
     });
   };
 
-  const handleUpdateSubcategory = () => {
+  const handleUpdateSubcategory = async () => {
     if (!editingSubcategory) return;
     if (!formData.category_id) {
       toast.error('Please select a parent category');
@@ -102,35 +144,35 @@ export default function ProductSubcategoriesPage() {
     }
 
     try {
-      updateProductSubcategory(editingSubcategory.id, formData);
-      setSubcategories(getProductSubcategories());
+      await updateSubcategory({ subcategoryId: editingSubcategory.id, data: formData as UpdateSubcategoryRequest });
+      mutateSubcategories(); // Refresh the subcategories list
       setEditingSubcategory(null);
       resetForm();
       toast.success('Product subcategory updated successfully');
-    } catch (error) {
-      toast.error('Failed to update product subcategory');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update product subcategory');
     }
   };
 
-  const handleDeleteSubcategory = (subcategoryId: string) => {
+  const handleDeleteSubcategory = async (subcategoryId: number) => {
     if (confirm('Are you sure you want to delete this product subcategory?')) {
       try {
-        deleteProductSubcategory(subcategoryId);
-        setSubcategories(getProductSubcategories());
+        await deleteSubcategory(subcategoryId.toString());
+        mutateSubcategories(); // Refresh the subcategories list
         toast.success('Product subcategory deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete product subcategory');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete product subcategory');
       }
     }
   };
 
-  const handleToggleStatus = (subcategoryId: string, is_active: boolean) => {
+  const handleToggleStatus = async (subcategoryId: number, is_active: boolean) => {
     try {
-      updateProductSubcategory(subcategoryId, { is_active });
-      setSubcategories(getProductSubcategories());
+      await updateSubcategory({ subcategoryId, data: { is_active } as UpdateSubcategoryRequest });
+      mutateSubcategories(); // Refresh the subcategories list
       toast.success(`Product subcategory ${is_active ? 'activated' : 'deactivated'} successfully`);
-    } catch (error) {
-      toast.error('Failed to update product subcategory status');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update product subcategory status');
     }
   };
 
@@ -158,18 +200,18 @@ export default function ProductSubcategoriesPage() {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="category_id">Parent Category *</Label>
-                <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.filter(c => c.is_active).map((category) => (
-                      <SelectItem key={category.id} value={category.id}>
-                        {category.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  <Select value={formData.category_id.toString()} onValueChange={(value) => setFormData({ ...formData, category_id: parseInt(value) })}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {allCategories?.filter((c: ProductCategory) => c.is_active).map((category: ProductCategory) => (
+                        <SelectItem key={category.id} value={category.id.toString()}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
               </div>
               <div>
                 <Label htmlFor="name">Name *</Label>
@@ -214,7 +256,10 @@ export default function ProductSubcategoriesPage() {
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddSubcategory}>Add Subcategory</Button>
+              <Button onClick={handleAddSubcategory} disabled={creatingSubcategory}>
+                {creatingSubcategory && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add Subcategory
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -242,19 +287,19 @@ export default function ProductSubcategoriesPage() {
             </div>
             <div>
               <Label htmlFor="category-filter">Parent Category</Label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Categories</SelectItem>
-                  {categories.map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
-                      {category.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Categories</SelectItem>
+                    {allCategories?.map((category: ProductCategory) => (
+                      <SelectItem key={category.id} value={category.id.toString()}>
+                        {category.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
             </div>
           </div>
         </CardContent>
@@ -263,63 +308,78 @@ export default function ProductSubcategoriesPage() {
       {/* Subcategories Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Product Subcategories ({filteredSubcategories.length})</CardTitle>
+          <CardTitle>Product Subcategories ({displaySubcategories.length})</CardTitle>
           <CardDescription>Manage subcategories organized under parent categories</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Parent Category</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredSubcategories.map((subcategory) => (
-                <TableRow key={subcategory.id}>
-                  <TableCell className="font-medium">{subcategory.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="outline">{getCategoryName(subcategory.category_id)}</Badge>
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">{subcategory.slug}</TableCell>
-                  <TableCell>{subcategory.position}</TableCell>
-                  <TableCell>
-                    <Badge variant={subcategory.is_active ? 'default' : 'secondary'}>
-                      {subcategory.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{new Date(subcategory.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditSubcategory(subcategory)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteSubcategory(subcategory.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredSubcategories.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No product subcategories found matching the current filters.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading subcategories...</span>
             </div>
+          ) : subcategoriesError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading subcategories: {subcategoriesError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Parent Category</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Position</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displaySubcategories.map((subcategory) => (
+                    <TableRow key={subcategory.id}>
+                      <TableCell className="font-medium">{subcategory.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline">{getCategoryName(subcategory.category_id)}</Badge>
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{subcategory.slug}</TableCell>
+                      <TableCell>{subcategory.position}</TableCell>
+                      <TableCell>
+                        <Badge variant={subcategory.is_active ? 'default' : 'secondary'}>
+                          {subcategory.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{new Date(subcategory.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditSubcategory(subcategory)}
+                            disabled={updatingSubcategory}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteSubcategory(subcategory.id)}
+                            disabled={deletingSubcategory}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displaySubcategories.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No product subcategories found matching the current filters.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -336,13 +396,13 @@ export default function ProductSubcategoriesPage() {
           <div className="space-y-4">
             <div>
               <Label htmlFor="edit_category_id">Parent Category *</Label>
-              <Select value={formData.category_id} onValueChange={(value) => setFormData({ ...formData, category_id: value })}>
+              <Select value={formData.category_id.toString()} onValueChange={(value) => setFormData({ ...formData, category_id: parseInt(value) })}>
                 <SelectTrigger>
                   <SelectValue placeholder="Select a category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {categories.filter(c => c.is_active).map((category) => (
-                    <SelectItem key={category.id} value={category.id}>
+                  {allCategories?.filter((c: ProductCategory) => c.is_active).map((category: ProductCategory) => (
+                    <SelectItem key={category.id} value={category.id.toString()}>
                       {category.name}
                     </SelectItem>
                   ))}
@@ -387,7 +447,10 @@ export default function ProductSubcategoriesPage() {
             <Button variant="outline" onClick={() => { setEditingSubcategory(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateSubcategory}>Update Subcategory</Button>
+            <Button onClick={handleUpdateSubcategory} disabled={updatingSubcategory}>
+              {updatingSubcategory && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Subcategory
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
