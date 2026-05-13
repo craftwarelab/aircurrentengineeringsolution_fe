@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,35 +10,72 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getFAQs, addFAQ, updateFAQ, deleteFAQ, type FAQ } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2, Eye, EyeOff } from 'lucide-react';
+import {
+  useFAQs,
+  useCreateFAQ,
+  useUpdateFAQ,
+  useDeleteFAQ,
+  useToggleFAQActive,
+  usePublishFAQ,
+  useUnpublishFAQ,
+  useUpdateFAQPriority,
+  type FAQ,
+  type CreateFAQRequest,
+  type UpdateFAQRequest
+} from '@/lib/hooks/use-faqs';
 import { toast } from 'sonner';
 
 export default function FAQsPage() {
-  const [faqs, setFaqs] = useState<FAQ[]>(getFAQs());
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateFAQRequest>({
     question: '',
     answer: '',
     priority: 0,
     is_active: true,
-    status: 'draft' as FAQ['status'],
+    status: 'draft',
     slug: '',
   });
 
-  const filteredFAQs = faqs.filter(faq =>
-    faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // SWR hooks
+  const { data: allFAQs, error: faqsError, isLoading: faqsLoading, mutate: mutateFAQs } = useFAQs();
+
+  // API mutation hooks
+  const { trigger: createFAQ, isMutating: creatingFAQ } = useCreateFAQ();
+  const { trigger: updateFAQ, isMutating: updatingFAQ } = useUpdateFAQ();
+  const { trigger: deleteFAQ, isMutating: deletingFAQ } = useDeleteFAQ();
+  const { trigger: toggleActive, isMutating: togglingActive } = useToggleFAQActive();
+  const { trigger: publishFAQ, isMutating: publishingFAQ } = usePublishFAQ();
+  const { trigger: unpublishFAQ, isMutating: unpublishingFAQ } = useUnpublishFAQ();
+  const { trigger: updatePriority, isMutating: updatingPriority } = useUpdateFAQPriority();
+
+  const isLoading = faqsLoading;
+
+  // Determine which data to display
+  const displayFAQs = useMemo(() => {
+    let faqs;
+    if (searchTerm.trim()) {
+      // Client-side search since no search API for FAQs
+      faqs = allFAQs?.filter(faq =>
+        faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
+      ) || [];
+    } else {
+      faqs = allFAQs || [];
+    }
+
+    // Ensure we always return an array
+    return Array.isArray(faqs) ? faqs : [];
+  }, [searchTerm, allFAQs]);
 
   const resetForm = () => {
     setFormData({
       question: '',
       answer: '',
-      priority: faqs.length + 1,
+      priority: (allFAQs?.length || 0) + 1,
       is_active: true,
       status: 'draft',
       slug: '',
@@ -61,15 +98,15 @@ export default function FAQsPage() {
     });
   };
 
-  const handleAddFAQ = () => {
+  const handleAddFAQ = async () => {
     try {
-      const newFAQ = addFAQ(formData);
-      setFaqs(getFAQs());
+      await createFAQ({ url: `${process.env.NEXT_PUBLIC_API_URL}/faqs/`, data: formData });
+      mutateFAQs(); // Refresh the FAQs list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('FAQ added successfully');
-    } catch (error) {
-      toast.error('Failed to add FAQ');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add FAQ');
     }
   };
 
@@ -85,39 +122,39 @@ export default function FAQsPage() {
     });
   };
 
-  const handleUpdateFAQ = () => {
+  const handleUpdateFAQ = async () => {
     if (!editingFAQ) return;
 
     try {
-      updateFAQ(editingFAQ.id, formData);
-      setFaqs(getFAQs());
+      await updateFAQ({ faqId: editingFAQ.id, data: formData as UpdateFAQRequest });
+      mutateFAQs(); // Refresh the FAQs list
       setEditingFAQ(null);
       resetForm();
       toast.success('FAQ updated successfully');
-    } catch (error) {
-      toast.error('Failed to update FAQ');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update FAQ');
     }
   };
 
-  const handleDeleteFAQ = (faqId: string) => {
+  const handleDeleteFAQ = async (faqId: number) => {
     if (confirm('Are you sure you want to delete this FAQ?')) {
       try {
-        deleteFAQ(faqId);
-        setFaqs(getFAQs());
+        await deleteFAQ(faqId.toString());
+        mutateFAQs(); // Refresh the FAQs list
         toast.success('FAQ deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete FAQ');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete FAQ');
       }
     }
   };
 
-  const handleToggleStatus = (faqId: string, is_active: boolean) => {
+  const handleToggleStatus = async (faqId: number) => {
     try {
-      updateFAQ(faqId, { is_active });
-      setFaqs(getFAQs());
-      toast.success(`FAQ ${is_active ? 'activated' : 'deactivated'} successfully`);
-    } catch (error) {
-      toast.error('Failed to update FAQ status');
+      await toggleActive(faqId);
+      mutateFAQs(); // Refresh the FAQs list
+      toast.success('FAQ status toggled successfully');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to toggle FAQ status');
     }
   };
 
@@ -129,6 +166,36 @@ export default function FAQsPage() {
         return 'secondary';
       default:
         return 'outline';
+    }
+  };
+
+  const handlePublishFAQ = async (faqId: number) => {
+    try {
+      await publishFAQ(faqId);
+      mutateFAQs(); // Refresh the FAQs list
+      toast.success('FAQ published successfully');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to publish FAQ');
+    }
+  };
+
+  const handleUnpublishFAQ = async (faqId: number) => {
+    try {
+      await unpublishFAQ(faqId);
+      mutateFAQs(); // Refresh the FAQs list
+      toast.success('FAQ unpublished successfully');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to unpublish FAQ');
+    }
+  };
+
+  const handleUpdatePriority = async (faqId: number, priority: number) => {
+    try {
+      await updatePriority({ faqId, priority });
+      mutateFAQs(); // Refresh the FAQs list
+      toast.success('FAQ priority updated successfully');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update FAQ priority');
     }
   };
 
@@ -221,7 +288,10 @@ export default function FAQsPage() {
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddFAQ}>Add FAQ</Button>
+              <Button onClick={handleAddFAQ} disabled={creatingFAQ}>
+                {creatingFAQ && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add FAQ
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -248,63 +318,111 @@ export default function FAQsPage() {
       {/* FAQs Table */}
       <Card>
         <CardHeader>
-          <CardTitle>FAQs ({filteredFAQs.length})</CardTitle>
+          <CardTitle>FAQs ({displayFAQs.length})</CardTitle>
           <CardDescription>Manage frequently asked questions</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Question</TableHead>
-                <TableHead>Answer</TableHead>
-                <TableHead>Priority</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredFAQs.map((faq) => (
-                <TableRow key={faq.id}>
-                  <TableCell className="font-medium max-w-xs truncate">
-                    {faq.question}
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {faq.answer}
-                  </TableCell>
-                  <TableCell>{faq.priority}</TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(faq.status)}>
-                      {faq.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{new Date(faq.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditFAQ(faq)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteFAQ(faq.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredFAQs.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No FAQs found matching the search term.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading FAQs...</span>
             </div>
+          ) : faqsError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading FAQs: {faqsError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Question</TableHead>
+                    <TableHead>Answer</TableHead>
+                    <TableHead>Priority</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayFAQs.map((faq) => (
+                    <TableRow key={faq.id}>
+                      <TableCell className="font-medium max-w-xs truncate">
+                        {faq.question}
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {faq.answer}
+                      </TableCell>
+                      <TableCell>{faq.priority}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStatusBadgeVariant(faq.status)}>
+                            {faq.status}
+                          </Badge>
+                          {faq.is_active ? (
+                            <Eye className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditFAQ(faq)}
+                            disabled={updatingFAQ}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          {faq.status === 'draft' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePublishFAQ(faq.id)}
+                              disabled={publishingFAQ}
+                            >
+                              <Eye className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {faq.status === 'active' && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleUnpublishFAQ(faq.id)}
+                              disabled={unpublishingFAQ}
+                            >
+                              <EyeOff className="h-4 w-4" />
+                            </Button>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleStatus(faq.id)}
+                            disabled={togglingActive}
+                          >
+                            {faq.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteFAQ(faq.id)}
+                            disabled={deletingFAQ}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displayFAQs.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No FAQs found matching the search term.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -381,7 +499,10 @@ export default function FAQsPage() {
             <Button variant="outline" onClick={() => { setEditingFAQ(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateFAQ}>Update FAQ</Button>
+            <Button onClick={handleUpdateFAQ} disabled={updatingFAQ}>
+              {updatingFAQ && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update FAQ
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
