@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import Navigation from '@/components/navigation'
 import Footer from '@/components/footer'
 import { Toaster } from '@/components/ui/sonner'
+import { SWRProvider } from '@/components/providers/swr-provider'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -48,12 +49,14 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased flex flex-col min-h-screen">
-        <Navigation />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
-        <Toaster />
+        <SWRProvider>
+          <Navigation />
+          <main className="flex-1">
+            {children}
+          </main>
+          <Footer />
+          <Toaster />
+        </SWRProvider>
         {/* {process.env.NODE_ENV === 'production' && <Analytics />} */}
       </body>
     </html>
