@@ -1,31 +1,57 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getServiceTags, addServiceTag, updateServiceTag, deleteServiceTag, type ServiceTag } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  useServiceTags,
+  useCreateServiceTags,
+  useUpdateServiceTag,
+  useDeleteServiceTag,
+  useSearchServiceTags,
+  type ServiceTag,
+  type UpdateServiceTagRequest
+} from '@/lib/hooks/use-service-tags';
 import { toast } from 'sonner';
 
 export default function ServiceTagsPage() {
-  const [tags, setTags] = useState<ServiceTag[]>(getServiceTags());
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<ServiceTag | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{ name: string; slug: string }>({
     name: '',
     slug: '',
   });
 
-  const filteredTags = tags.filter(tag =>
-    tag.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tag.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // SWR hooks
+  const { data: allTags, error: tagsError, isLoading: tagsLoading, mutate: mutateTags } = useServiceTags();
+  const { data: searchResults, isLoading: searchLoading } = useSearchServiceTags(searchTerm.trim());
+
+  // API mutation hooks
+  const { trigger: createTags, isMutating: creatingTags } = useCreateServiceTags();
+  const { trigger: updateTag, isMutating: updatingTag } = useUpdateServiceTag();
+  const { trigger: deleteTag, isMutating: deletingTag } = useDeleteServiceTag();
+
+  const isLoading = tagsLoading || (searchTerm.trim() && searchLoading);
+
+  // Determine which data to display
+  const displayTags = useMemo(() => {
+    let tags;
+    if (searchTerm.trim()) {
+      tags = searchResults;
+    } else {
+      tags = allTags;
+    }
+
+    // Ensure we always return an array
+    return Array.isArray(tags) ? tags : [];
+  }, [searchTerm, searchResults, allTags]);
 
   const resetForm = () => {
     setFormData({
@@ -49,15 +75,15 @@ export default function ServiceTagsPage() {
     });
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     try {
-      const newTag = addServiceTag(formData);
-      setTags(getServiceTags());
+      await createTags([formData.name]);
+      mutateTags(); // Refresh the tags list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('Service tag added successfully');
-    } catch (error) {
-      toast.error('Failed to add service tag');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add service tag');
     }
   };
 
@@ -69,28 +95,28 @@ export default function ServiceTagsPage() {
     });
   };
 
-  const handleUpdateTag = () => {
+  const handleUpdateTag = async () => {
     if (!editingTag) return;
 
     try {
-      updateServiceTag(editingTag.id, formData);
-      setTags(getServiceTags());
+      await updateTag({ tagId: editingTag.id, data: formData as UpdateServiceTagRequest });
+      mutateTags(); // Refresh the tags list
       setEditingTag(null);
       resetForm();
       toast.success('Service tag updated successfully');
-    } catch (error) {
-      toast.error('Failed to update service tag');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update service tag');
     }
   };
 
-  const handleDeleteTag = (tagId: string) => {
+  const handleDeleteTag = async (tagId: number) => {
     if (confirm('Are you sure you want to delete this service tag?')) {
       try {
-        deleteServiceTag(tagId);
-        setTags(getServiceTags());
+        await deleteTag(tagId.toString());
+        mutateTags(); // Refresh the tags list
         toast.success('Service tag deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete service tag');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete service tag');
       }
     }
   };
@@ -141,7 +167,10 @@ export default function ServiceTagsPage() {
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddTag}>Add Tag</Button>
+              <Button onClick={handleAddTag} disabled={creatingTags}>
+                {creatingTags && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add Tag
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -168,51 +197,66 @@ export default function ServiceTagsPage() {
       {/* Tags Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Service Tags ({filteredTags.length})</CardTitle>
+          <CardTitle>Service Tags ({displayTags.length})</CardTitle>
           <CardDescription>Manage tags for organizing services</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTags.map((tag) => (
-                <TableRow key={tag.id}>
-                  <TableCell className="font-medium">{tag.name}</TableCell>
-                  <TableCell className="font-mono text-sm">{tag.slug}</TableCell>
-                  <TableCell>{new Date(tag.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditTag(tag)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteTag(tag.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredTags.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No service tags found matching the search term.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading tags...</span>
             </div>
+          ) : tagsError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading tags: {tagsError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayTags.map((tag) => (
+                    <TableRow key={tag.id}>
+                      <TableCell className="font-medium">{tag.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{tag.slug}</TableCell>
+                      <TableCell>{new Date(tag.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditTag(tag)}
+                            disabled={updatingTag}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTag(tag.id)}
+                            disabled={deletingTag}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displayTags.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No service tags found matching the search term.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -248,7 +292,10 @@ export default function ServiceTagsPage() {
             <Button variant="outline" onClick={() => { setEditingTag(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateTag}>Update Tag</Button>
+            <Button onClick={handleUpdateTag} disabled={updatingTag}>
+              {updatingTag && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Tag
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
