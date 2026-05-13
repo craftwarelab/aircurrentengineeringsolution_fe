@@ -205,12 +205,16 @@ export interface Project {
   seo_title?: string;
   seo_description?: string;
   meta_keywords?: string;
-  status?: string;
+  status?: 'draft' | 'active' | 'inactive';
   created_at: string;
   updated_at: string;
-  // Relations
-  tags?: ProjectTag[];
-  images?: ProjectImage[];
+  // Relationship IDs for form handling
+  tag_ids?: string[];
+  images?: File[]; // For form handling
+  main_image_index?: number;
+  // Relations (for display purposes)
+  tag_objects?: ProjectTag[];
+  image_objects?: ProjectImage[];
 }
 
 export interface ProjectTag {
