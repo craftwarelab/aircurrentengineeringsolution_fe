@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -10,32 +10,68 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getTestimonials, addTestimonial, updateTestimonial, deleteTestimonial, type Testimonial } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2, CheckCircle, XCircle, Eye, EyeOff } from 'lucide-react';
+import {
+  useTestimonials,
+  useCreateTestimonial,
+  useUpdateTestimonial,
+  useDeleteTestimonial,
+  useApproveTestimonial,
+  useUnapproveTestimonial,
+  useToggleTestimonialActive,
+  useUpdateTestimonialPosition,
+  type Testimonial,
+  type CreateTestimonialRequest,
+  type UpdateTestimonialRequest
+} from '@/lib/hooks/use-testimonials';
 import { toast } from 'sonner';
 
 export default function TestimonialsPage() {
-  const [testimonials, setTestimonials] = useState<Testimonial[]>(getTestimonials());
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTestimonial, setEditingTestimonial] = useState<Testimonial | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateTestimonialRequest>({
     message: '',
     customer_name: '',
     customer_position: '',
     company_name: '',
     is_approved: false,
     is_active: true,
-    position: 0,
-    status: 'draft' as Testimonial['status'],
+    status: 'draft',
   });
 
-  const filteredTestimonials = testimonials.filter(testimonial =>
-    testimonial.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    testimonial.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    testimonial.message.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // SWR hooks
+  const { data: allTestimonials, error: testimonialsError, isLoading: testimonialsLoading, mutate: mutateTestimonials } = useTestimonials();
+
+  // API mutation hooks
+  const { trigger: createTestimonial, isMutating: creatingTestimonial } = useCreateTestimonial();
+  const { trigger: updateTestimonial, isMutating: updatingTestimonial } = useUpdateTestimonial();
+  const { trigger: deleteTestimonial, isMutating: deletingTestimonial } = useDeleteTestimonial();
+  const { trigger: approveTestimonial, isMutating: approvingTestimonial } = useApproveTestimonial();
+  const { trigger: unapproveTestimonial, isMutating: unapprovingTestimonial } = useUnapproveTestimonial();
+  const { trigger: toggleActive, isMutating: togglingActive } = useToggleTestimonialActive();
+  const { trigger: updatePosition, isMutating: updatingPosition } = useUpdateTestimonialPosition();
+
+  const isLoading = testimonialsLoading;
+
+  // Determine which data to display
+  const displayTestimonials = useMemo(() => {
+    let testimonials;
+    if (searchTerm.trim()) {
+      // Client-side search since no search API for testimonials
+      testimonials = allTestimonials?.filter(testimonial =>
+        testimonial.customer_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        testimonial.company_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        testimonial.message.toLowerCase().includes(searchTerm.toLowerCase())
+      ) || [];
+    } else {
+      testimonials = allTestimonials || [];
+    }
+
+    // Ensure we always return an array
+    return Array.isArray(testimonials) ? testimonials : [];
+  }, [searchTerm, allTestimonials]);
 
   const resetForm = () => {
     setFormData({
@@ -45,20 +81,20 @@ export default function TestimonialsPage() {
       company_name: '',
       is_approved: false,
       is_active: true,
-      position: testimonials.length + 1,
+      position: (allTestimonials?.length || 0) + 1,
       status: 'draft',
     });
   };
 
-  const handleAddTestimonial = () => {
+  const handleAddTestimonial = async () => {
     try {
-      const newTestimonial = addTestimonial(formData);
-      setTestimonials(getTestimonials());
+      await createTestimonial({ url: `${process.env.NEXT_PUBLIC_API_URL}/testimonials/`, data: formData });
+      mutateTestimonials(); // Refresh the testimonials list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('Testimonial added successfully');
-    } catch (error) {
-      toast.error('Failed to add testimonial');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add testimonial');
     }
   };
 
@@ -76,49 +112,54 @@ export default function TestimonialsPage() {
     });
   };
 
-  const handleUpdateTestimonial = () => {
+  const handleUpdateTestimonial = async () => {
     if (!editingTestimonial) return;
 
     try {
-      updateTestimonial(editingTestimonial.id, formData);
-      setTestimonials(getTestimonials());
+      await updateTestimonial({ testimonialId: editingTestimonial.id, data: formData as UpdateTestimonialRequest });
+      mutateTestimonials(); // Refresh the testimonials list
       setEditingTestimonial(null);
       resetForm();
       toast.success('Testimonial updated successfully');
-    } catch (error) {
-      toast.error('Failed to update testimonial');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update testimonial');
     }
   };
 
-  const handleDeleteTestimonial = (testimonialId: string) => {
+  const handleDeleteTestimonial = async (testimonialId: number) => {
     if (confirm('Are you sure you want to delete this testimonial?')) {
       try {
-        deleteTestimonial(testimonialId);
-        setTestimonials(getTestimonials());
+        await deleteTestimonial(testimonialId.toString());
+        mutateTestimonials(); // Refresh the testimonials list
         toast.success('Testimonial deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete testimonial');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete testimonial');
       }
     }
   };
 
-  const handleToggleApproval = (testimonialId: string, is_approved: boolean) => {
+  const handleToggleApproval = async (testimonialId: number, is_approved: boolean) => {
     try {
-      updateTestimonial(testimonialId, { is_approved });
-      setTestimonials(getTestimonials());
-      toast.success(`Testimonial ${is_approved ? 'approved' : 'unapproved'} successfully`);
-    } catch (error) {
-      toast.error('Failed to update testimonial approval');
+      if (is_approved) {
+        await approveTestimonial(testimonialId);
+        toast.success('Testimonial approved successfully');
+      } else {
+        await unapproveTestimonial(testimonialId);
+        toast.success('Testimonial unapproved successfully');
+      }
+      mutateTestimonials(); // Refresh the testimonials list
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update testimonial approval');
     }
   };
 
-  const handleToggleStatus = (testimonialId: string, is_active: boolean) => {
+  const handleToggleStatus = async (testimonialId: number) => {
     try {
-      updateTestimonial(testimonialId, { is_active });
-      setTestimonials(getTestimonials());
-      toast.success(`Testimonial ${is_active ? 'activated' : 'deactivated'} successfully`);
-    } catch (error) {
-      toast.error('Failed to update testimonial status');
+      await toggleActive(testimonialId);
+      mutateTestimonials(); // Refresh the testimonials list
+      toast.success('Testimonial status toggled successfully');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to toggle testimonial status');
     }
   };
 
@@ -240,7 +281,10 @@ export default function TestimonialsPage() {
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddTestimonial}>Add Testimonial</Button>
+              <Button onClick={handleAddTestimonial} disabled={creatingTestimonial}>
+                {creatingTestimonial && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add Testimonial
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -267,78 +311,117 @@ export default function TestimonialsPage() {
       {/* Testimonials Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Testimonials ({filteredTestimonials.length})</CardTitle>
+          <CardTitle>Testimonials ({displayTestimonials.length})</CardTitle>
           <CardDescription>Manage customer testimonials and reviews</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Customer</TableHead>
-                <TableHead>Message</TableHead>
-                <TableHead>Approved</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Position</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTestimonials.map((testimonial) => (
-                <TableRow key={testimonial.id}>
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{testimonial.customer_name}</div>
-                      {testimonial.customer_position && (
-                        <div className="text-sm text-gray-500">{testimonial.customer_position}</div>
-                      )}
-                      {testimonial.company_name && (
-                        <div className="text-sm text-gray-500">{testimonial.company_name}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell className="max-w-xs truncate">
-                    {testimonial.message}
-                  </TableCell>
-                  <TableCell>
-                    <Switch
-                      checked={testimonial.is_approved}
-                      onCheckedChange={(checked) => handleToggleApproval(testimonial.id, checked)}
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={getStatusBadgeVariant(testimonial.status)}>
-                      {testimonial.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{testimonial.position}</TableCell>
-                  <TableCell>{new Date(testimonial.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditTestimonial(testimonial)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteTestimonial(testimonial.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredTestimonials.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No testimonials found matching the search term.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading testimonials...</span>
             </div>
+          ) : testimonialsError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading testimonials: {testimonialsError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Customer</TableHead>
+                    <TableHead>Message</TableHead>
+                    <TableHead>Approved</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Position</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayTestimonials.map((testimonial) => (
+                    <TableRow key={testimonial.id}>
+                      <TableCell>
+                        <div>
+                          <div className="font-medium">{testimonial.customer_name}</div>
+                          {testimonial.customer_position && (
+                            <div className="text-sm text-gray-500">{testimonial.customer_position}</div>
+                          )}
+                          {testimonial.company_name && (
+                            <div className="text-sm text-gray-500">{testimonial.company_name}</div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell className="max-w-xs truncate">
+                        {testimonial.message}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          {testimonial.is_approved ? (
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <XCircle className="h-4 w-4 text-red-400" />
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleApproval(testimonial.id, !testimonial.is_approved)}
+                            disabled={approvingTestimonial || unapprovingTestimonial}
+                          >
+                            {testimonial.is_approved ? 'Unapprove' : 'Approve'}
+                          </Button>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStatusBadgeVariant(testimonial.status)}>
+                            {testimonial.status}
+                          </Badge>
+                          {testimonial.is_active ? (
+                            <Eye className="h-4 w-4 text-green-600" />
+                          ) : (
+                            <EyeOff className="h-4 w-4 text-gray-400" />
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>{testimonial.position}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditTestimonial(testimonial)}
+                            disabled={updatingTestimonial}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleToggleStatus(testimonial.id)}
+                            disabled={togglingActive}
+                          >
+                            {testimonial.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTestimonial(testimonial.id)}
+                            disabled={deletingTestimonial}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displayTestimonials.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No testimonials found matching the search term.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -433,7 +516,10 @@ export default function TestimonialsPage() {
             <Button variant="outline" onClick={() => { setEditingTestimonial(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateTestimonial}>Update Testimonial</Button>
+            <Button onClick={handleUpdateTestimonial} disabled={updatingTestimonial}>
+              {updatingTestimonial && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Testimonial
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
