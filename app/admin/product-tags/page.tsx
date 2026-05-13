@@ -1,31 +1,58 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Edit, Trash2, Search } from 'lucide-react';
-import { getProductTags, addProductTag, updateProductTag, deleteProductTag, type ProductTag } from '@/lib/mockDatabase';
+import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import {
+  useTags,
+  useCreateTags,
+  useUpdateTag,
+  useDeleteTag,
+  useSearchTags,
+  type ProductTag,
+  type CreateTagRequest,
+  type UpdateTagRequest
+} from '@/lib/hooks/use-tags';
 import { toast } from 'sonner';
 
 export default function ProductTagsPage() {
-  const [tags, setTags] = useState<ProductTag[]>(getProductTags());
   const [searchTerm, setSearchTerm] = useState('');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingTag, setEditingTag] = useState<ProductTag | null>(null);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CreateTagRequest & { slug?: string }>({
     name: '',
     slug: '',
   });
 
-  const filteredTags = tags.filter(tag =>
-    tag.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    tag.slug.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // SWR hooks
+  const { data: allTags, error: tagsError, isLoading: tagsLoading, mutate: mutateTags } = useTags();
+  const { data: searchResults, isLoading: searchLoading } = useSearchTags(searchTerm.trim());
+
+  // API mutation hooks
+  const { trigger: createTags, isMutating: creatingTags } = useCreateTags();
+  const { trigger: updateTag, isMutating: updatingTag } = useUpdateTag();
+  const { trigger: deleteTag, isMutating: deletingTag } = useDeleteTag();
+
+  const isLoading = tagsLoading || (searchTerm.trim() && searchLoading);
+
+  // Determine which data to display
+  const displayTags = useMemo(() => {
+    let tags;
+    if (searchTerm.trim()) {
+      tags = searchResults;
+    } else {
+      tags = allTags;
+    }
+
+    // Ensure we always return an array
+    return Array.isArray(tags) ? tags : [];
+  }, [searchTerm, searchResults, allTags]);
 
   const resetForm = () => {
     setFormData({
@@ -49,15 +76,15 @@ export default function ProductTagsPage() {
     });
   };
 
-  const handleAddTag = () => {
+  const handleAddTag = async () => {
     try {
-      const newTag = addProductTag(formData);
-      setTags(getProductTags());
+      await createTags([formData.name]);
+      mutateTags(); // Refresh the tags list
       setIsAddDialogOpen(false);
       resetForm();
       toast.success('Product tag added successfully');
-    } catch (error) {
-      toast.error('Failed to add product tag');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to add product tag');
     }
   };
 
@@ -69,28 +96,28 @@ export default function ProductTagsPage() {
     });
   };
 
-  const handleUpdateTag = () => {
+  const handleUpdateTag = async () => {
     if (!editingTag) return;
 
     try {
-      updateProductTag(editingTag.id, formData);
-      setTags(getProductTags());
+      await updateTag({ tagId: editingTag.id, data: formData as UpdateTagRequest });
+      mutateTags(); // Refresh the tags list
       setEditingTag(null);
       resetForm();
       toast.success('Product tag updated successfully');
-    } catch (error) {
-      toast.error('Failed to update product tag');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to update product tag');
     }
   };
 
-  const handleDeleteTag = (tagId: string) => {
+  const handleDeleteTag = async (tagId: number) => {
     if (confirm('Are you sure you want to delete this product tag?')) {
       try {
-        deleteProductTag(tagId);
-        setTags(getProductTags());
+        await deleteTag(tagId.toString());
+        mutateTags(); // Refresh the tags list
         toast.success('Product tag deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete product tag');
+      } catch (error: any) {
+        toast.error(error?.response?.data?.message || 'Failed to delete product tag');
       }
     }
   };
@@ -126,22 +153,15 @@ export default function ProductTagsPage() {
                   placeholder="Enter tag name"
                 />
               </div>
-              <div>
-                <Label htmlFor="slug">Slug</Label>
-                <Input
-                  id="slug"
-                  value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  placeholder="auto-generated-slug"
-                />
-                <p className="text-sm text-gray-500 mt-1">URL-friendly version of the name</p>
-              </div>
             </div>
             <div className="flex justify-end gap-2 mt-4">
               <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
                 Cancel
               </Button>
-              <Button onClick={handleAddTag}>Add Tag</Button>
+              <Button onClick={handleAddTag} disabled={creatingTags}>
+                {creatingTags && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Add Tag
+              </Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -168,51 +188,66 @@ export default function ProductTagsPage() {
       {/* Tags Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Product Tags ({filteredTags.length})</CardTitle>
+          <CardTitle>Product Tags ({displayTags.length})</CardTitle>
           <CardDescription>Manage tags for organizing products</CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Slug</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredTags.map((tag) => (
-                <TableRow key={tag.id}>
-                  <TableCell className="font-medium">{tag.name}</TableCell>
-                  <TableCell className="font-mono text-sm">{tag.slug}</TableCell>
-                  <TableCell>{new Date(tag.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleEditTag(tag)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDeleteTag(tag.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {filteredTags.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No product tags found matching the search term.
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin mr-2" />
+              <span>Loading tags...</span>
             </div>
+          ) : tagsError ? (
+            <div className="text-center py-8 text-red-500">
+              Error loading tags: {tagsError.message}
+            </div>
+          ) : (
+            <>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Slug</TableHead>
+                    <TableHead>Created</TableHead>
+                    <TableHead>Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {displayTags.map((tag) => (
+                    <TableRow key={tag.id}>
+                      <TableCell className="font-medium">{tag.name}</TableCell>
+                      <TableCell className="font-mono text-sm">{tag.slug}</TableCell>
+                      <TableCell>{new Date(tag.created_at).toLocaleDateString()}</TableCell>
+                      <TableCell>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleEditTag(tag)}
+                            disabled={updatingTag}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleDeleteTag(tag.id)}
+                            disabled={deletingTag}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+              {displayTags.length === 0 && (
+                <div className="text-center py-8 text-gray-500">
+                  No product tags found matching the search term.
+                </div>
+              )}
+            </>
           )}
         </CardContent>
       </Card>
@@ -235,20 +270,15 @@ export default function ProductTagsPage() {
                 onChange={(e) => handleNameChange(e.target.value)}
               />
             </div>
-            <div>
-              <Label htmlFor="edit_slug">Slug</Label>
-              <Input
-                id="edit_slug"
-                value={formData.slug}
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-              />
-            </div>
           </div>
           <div className="flex justify-end gap-2 mt-4">
             <Button variant="outline" onClick={() => { setEditingTag(null); resetForm(); }}>
               Cancel
             </Button>
-            <Button onClick={handleUpdateTag}>Update Tag</Button>
+            <Button onClick={handleUpdateTag} disabled={updatingTag}>
+              {updatingTag && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Update Tag
+            </Button>
           </div>
         </DialogContent>
       </Dialog>
