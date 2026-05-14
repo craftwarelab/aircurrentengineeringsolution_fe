@@ -145,6 +145,8 @@ export default function AdminLayout({
     // Clear client-side auth data
     import('@/lib/auth').then(({ AuthUtils }) => {
       AuthUtils.logout();
+      // Notify other components about auth state change
+      window.dispatchEvent(new CustomEvent('authChange'));
     });
 
     router.push('/admin/login');

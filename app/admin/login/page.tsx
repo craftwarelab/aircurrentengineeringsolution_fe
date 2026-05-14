@@ -41,6 +41,8 @@ export default function AdminLogin() {
       if (response.ok && data.success) {
         // Set user data in localStorage for client-side use
         AuthUtils.login('authenticated', data.user);
+        // Notify other components about auth state change
+        window.dispatchEvent(new CustomEvent('authChange'));
         router.push('/admin');
       } else {
         setError(data.error || 'Login failed');

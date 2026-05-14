@@ -1,12 +1,41 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AuthUtils } from "@/lib/auth";
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  useEffect(() => {
+    // Check authentication status on component mount and when localStorage changes
+    const checkAuth = () => {
+      setIsAuthenticated(AuthUtils.isAuthenticated());
+    };
+
+    checkAuth();
+
+    // Listen for storage changes (login/logout from other tabs)
+    const handleStorageChange = () => {
+      checkAuth();
+    };
+
+    // Listen for custom auth change events (for same-tab login/logout)
+    const handleAuthChange = () => {
+      checkAuth();
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('authChange', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('authChange', handleAuthChange);
+    };
+  }, []);
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -44,6 +73,14 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+              {isAuthenticated && (
+                <Link
+                  href="/admin"
+                  className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary hover:bg-secondary transition-colors rounded-md"
+                >
+                  Dashboard
+                </Link>
+              )}
             </div>
             <Button
               asChild
@@ -78,6 +115,15 @@ export default function Navigation() {
                 {link.label}
               </Link>
             ))}
+            {isAuthenticated && (
+              <Link
+                href="/admin"
+                className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary hover:bg-secondary transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                Admin Dashboard
+              </Link>
+            )}
             <div className="px-3 py-2">
               <Button
                 asChild
