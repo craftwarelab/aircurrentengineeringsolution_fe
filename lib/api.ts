@@ -32,10 +32,18 @@ if (axios) {
       if (token && !AuthUtils.isTokenExpired()) {
         config.headers.Authorization = `Bearer ${token}`;
       } else if (token && AuthUtils.isTokenExpired()) {
-        // Token is expired, clear it
-        AuthUtils.logout();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/admin/login';
+        // Token is expired - don't log out for mutation requests to prevent session loss
+        const isMutationRequest = ['POST', 'PUT', 'DELETE'].includes(config.method?.toUpperCase());
+        if (!isMutationRequest) {
+          AuthUtils.logout();
+          if (typeof window !== 'undefined') {
+            window.location.href = '/admin/login';
+          }
+        }
+        // For mutation requests, still try to send the request even with expired token
+        // The server will reject it, but we won't log out
+        else if (token) {
+          config.headers.Authorization = `Bearer ${token}`;
         }
       }
 
@@ -52,8 +60,11 @@ if (axios) {
       return response;
     },
     (error: any) => {
-      if (error.response?.status === 401) {
-        // Unauthorized - clear auth data and redirect to login
+      // Don't log out on mutation request errors (POST, PUT, DELETE) to prevent session loss during API calls
+      const isMutationRequest = ['POST', 'PUT', 'DELETE'].includes(error.config?.method?.toUpperCase());
+
+      if (error.response?.status === 401 && !isMutationRequest) {
+        // Unauthorized - clear auth data and redirect to login (only for non-mutation requests)
         AuthUtils.logout();
         if (typeof window !== 'undefined') {
           window.location.href = '/admin/login';
@@ -61,7 +72,7 @@ if (axios) {
       }
 
       // Handle token refresh if needed (optional)
-      if (error.response?.status === 403 && error.response.data?.message === 'Token expired') {
+      if (error.response?.status === 403 && error.response.data?.message === 'Token expired' && !isMutationRequest) {
         // Could implement token refresh logic here
         AuthUtils.logout();
         if (typeof window !== 'undefined') {
