@@ -51,6 +51,15 @@ export class AuthUtils {
     this.removeUser();
   }
 
+  // Update current user data
+  static updateUser(userData: any): void {
+    const currentUser = this.getUser();
+    if (currentUser) {
+      const updatedUser = { ...currentUser, ...userData };
+      this.setUser(updatedUser);
+    }
+  }
+
   // Check if token is expired (basic implementation)
   static isTokenExpired(): boolean {
     const token = this.getToken();

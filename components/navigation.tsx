@@ -44,12 +44,6 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
-              <Link
-                href="/admin"
-                className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-primary hover:bg-secondary transition-colors rounded-md"
-              >
-                Admin
-              </Link>
             </div>
             <Button
               asChild
@@ -84,13 +78,6 @@ export default function Navigation() {
                 {link.label}
               </Link>
             ))}
-            <Link
-              href="/admin"
-              className="block px-3 py-2 rounded-md text-base font-medium text-muted-foreground hover:text-primary hover:bg-secondary transition-colors"
-              onClick={() => setIsOpen(false)}
-            >
-              Admin
-            </Link>
             <div className="px-3 py-2">
               <Button
                 asChild
