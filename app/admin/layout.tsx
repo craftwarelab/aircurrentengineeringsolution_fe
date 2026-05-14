@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { AuthUtils } from '@/lib/auth';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -94,13 +95,28 @@ export default function AdminLayout({
       return;
     }
 
-    // Check authentication
-    const isAuth = document.cookie.includes('admin_auth=true');
-    if (!isAuth) {
-      router.push('/admin/login');
-    } else {
-      setIsAuthenticated(true);
-    }
+    // Verify authentication with server
+    const verifyAuth = async () => {
+      try {
+        const response = await fetch('/api/auth');
+        const data = await response.json();
+
+        if (data.authenticated) {
+          setIsAuthenticated(true);
+          // Update local user data if available
+          if (data.user) {
+            AuthUtils.setUser(data.user);
+          }
+        } else {
+          router.push('/admin/login');
+        }
+      } catch (error) {
+        console.error('Auth verification failed:', error);
+        router.push('/admin/login');
+      }
+    };
+
+    verifyAuth();
 
     // Auto-expand section containing current page (only if user hasn't manually interacted)
     if (!hasUserInteracted) {
@@ -111,19 +127,26 @@ export default function AdminLayout({
         setExpandedSections(prev => new Set([...prev, currentSection.title]));
       }
     }
-  }, [pathname, hasUserInteracted]);
+  }, [pathname, hasUserInteracted, router]);
 
   // For login page, render without admin layout
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
 
-  const handleLogout = () => {
-    document.cookie = 'admin_auth=; path=/; max-age=0';
-    // Clear auth data
+  const handleLogout = async () => {
+    try {
+      // Call logout API to clear server-side cookies
+      await fetch('/api/auth/logout', { method: 'POST' });
+    } catch (error) {
+      console.error('Logout API error:', error);
+    }
+
+    // Clear client-side auth data
     import('@/lib/auth').then(({ AuthUtils }) => {
       AuthUtils.logout();
     });
+
     router.push('/admin/login');
   };
 

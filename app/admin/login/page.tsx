@@ -24,20 +24,30 @@ export default function AdminLogin() {
       return;
     }
 
-    // Find user by email and check password
-    // For demo purposes, we'll accept any email with password 'admin123' for admin roles
-    const user = mockUsers.find(u => u.email.toLowerCase() === email.trim().toLowerCase());
+    try {
+      const response = await fetch('/api/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email: email.trim(),
+          password,
+        }),
+      });
 
-    if (user && password === 'admin123' && (user.role === 'admin' || user.role === 'superAdmin')) {
-      // Set auth cookie/session
-      document.cookie = 'admin_auth=true; path=/; max-age=3600'; // 1 hour
+      const data = await response.json();
 
-      // Set the authenticated user
-      AuthUtils.login('mock-jwt-token', user);
-
-      router.push('/admin');
-    } else {
-      setError('Invalid email or password');
+      if (response.ok && data.success) {
+        // Set user data in localStorage for client-side use
+        AuthUtils.login('authenticated', data.user);
+        router.push('/admin');
+      } else {
+        setError(data.error || 'Login failed');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setError('An error occurred during login');
     }
   };
 
