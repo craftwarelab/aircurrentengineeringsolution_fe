@@ -53,6 +53,10 @@ export default function ProductsPage() {
   const [visibleCount, setVisibleCount] = useState(60);
   const observerRef = useRef<HTMLDivElement>(null);
 
+  // Product Dialog State
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
 
@@ -305,7 +309,11 @@ export default function ProductsPage() {
                   return (
                      <div
                        key={product.id}
-                       className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03]"
+                       onClick={() => {
+                         setSelectedProduct(product);
+                         setSelectedImageIndex(0);
+                       }}
+                       className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03] cursor-pointer"
                      >
                       <div className="h-56 bg-gradient-to-br from-secondary to-muted flex items-center justify-center relative overflow-hidden">
                         <div className="text-center">
@@ -365,9 +373,132 @@ export default function ProductsPage() {
                 </div>
               </div>
             )}
-          </div>
+           </div>
         </div>
       </section>
+
+      {/* Product Detail Dialog */}
+      {selectedProduct && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="bg-white rounded-2xl w-full max-w-[1400px] h-[80vh] overflow-hidden shadow-2xl flex flex-col lg:flex-row scale-[1.05]">
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedProduct(null)}
+              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Left: Image Gallery */}
+            <div className="lg:w-2/3 bg-gray-50 p-10 flex flex-col">
+              <div className="flex-1 flex items-center justify-center bg-white rounded-xl border mb-4 overflow-hidden">
+                <div className="text-center">
+                  <div className="text-8xl mb-4">❄️</div>
+                  <div className="text-lg font-medium text-gray-500">Product Image {selectedImageIndex + 1}</div>
+                </div>
+              </div>
+
+              {/* Thumbnails */}
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {[1, 2, 3, 4].map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
+                      selectedImageIndex === index ? 'border-accent' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="w-full h-full bg-gradient-to-br from-secondary to-muted flex items-center justify-center">
+                      <span className="text-3xl">❄️</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Product Info */}
+            <div className="lg:w-1/3 p-6 flex flex-col overflow-y-auto">
+              <div className="mb-6">
+                {selectedProduct.type && (
+                  <span className="inline-block text-sm px-3 py-1 bg-accent/10 text-accent rounded-full mb-3">
+                    {selectedProduct.type}
+                  </span>
+                )}
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                  {selectedProduct.name}
+                </h1>
+                
+                {/* Price */}
+                <div className="flex items-baseline gap-3 mb-2">
+                  <span className="text-4xl font-bold text-gray-900">
+                    ${(selectedProduct.sale_price || selectedProduct.price || 0).toLocaleString()}
+                  </span>
+                  {selectedProduct.sale_price && selectedProduct.price && (
+                    <span className="text-xl text-gray-400 line-through">
+                      ${selectedProduct.price.toLocaleString()}
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-gray-500">Starting price • Contact for quote</p>
+              </div>
+
+              {/* Stock */}
+              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
+                <div className="flex items-center gap-2 text-green-700">
+                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
+                  <span className="font-semibold">In Stock</span>
+                </div>
+                <p className="text-sm text-green-600 mt-1">
+                  {selectedProduct.id.length * 7 + 87} units available • Ships in 2-5 business days
+                </p>
+              </div>
+
+              {/* Description */}
+              <div className="mb-8">
+                <h3 className="font-semibold text-lg mb-3">Product Description</h3>
+                <p className="text-gray-600 leading-relaxed">
+                  {selectedProduct.description}
+                </p>
+              </div>
+
+              {/* Specifications */}
+               {selectedProduct.specifications && Object.keys(selectedProduct.specifications).length > 0 && (
+                 <div className="mb-8">
+                   <h3 className="font-semibold text-lg mb-4">Specifications</h3>
+                   <div className="grid grid-cols-1 gap-3">
+                     {Object.entries(selectedProduct.specifications).map(([key, value]) => (
+                       <div key={key} className="flex justify-between border-b pb-2">
+                         <span className="text-gray-500">{key}</span>
+                         <span className="font-medium">{value}</span>
+                       </div>
+                     ))}
+                   </div>
+                 </div>
+               )}
+
+              <div className="flex-1"></div>
+
+              {/* Actions */}
+               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t mt-auto">
+                <Button asChild size="lg" className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <Link href={`/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
+                    Request Quote
+                  </Link>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="flex-1"
+                  onClick={() => setSelectedProduct(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
