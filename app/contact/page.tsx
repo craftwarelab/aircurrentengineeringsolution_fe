@@ -1,6 +1,53 @@
+'use client';
+
 import HeroSection from '@/components/hero-section';
 import ContactForm from '@/components/contact-form';
 import { Phone, Mail, MapPin, Clock } from 'lucide-react';
+import { useVisibleFAQs } from '@/lib/hooks/use-faqs';
+
+function FAQSection() {
+  const { data: faqs, isLoading, error } = useVisibleFAQs();
+
+  if (isLoading) {
+    return (
+      <section className="bg-secondary/30 py-16">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-3xl font-bold text-foreground mb-12">Frequently Asked Questions</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-card border border-border rounded-lg p-8 animate-pulse">
+                <div className="h-5 bg-muted rounded mb-3 w-3/4"></div>
+                <div className="h-4 bg-muted rounded mb-2"></div>
+                <div className="h-4 bg-muted rounded w-5/6"></div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  if (error || !faqs || faqs.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="bg-secondary/30 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h2 className="text-3xl font-bold text-foreground mb-12">Frequently Asked Questions</h2>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {faqs.map((faq) => (
+            <div key={faq.id} className="bg-card border border-border rounded-lg p-8">
+              <h3 className="text-lg font-semibold text-foreground mb-3">{faq.question}</h3>
+              <p className="text-muted-foreground text-sm">{faq.answer}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function Contact() {
   return (
@@ -83,62 +130,7 @@ export default function Contact() {
       </section>
 
       {/* FAQ Section */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-foreground mb-12">Frequently Asked Questions</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">How long does a typical HVAC project take?</h3>
-              <p className="text-muted-foreground text-sm">
-                Timeline varies based on project scope. A design assessment takes 1-2 weeks, installation 
-                typically ranges from 2-8 weeks depending on complexity. We&apos;ll provide a detailed 
-                schedule during the consultation phase.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Do you offer maintenance contracts?</h3>
-              <p className="text-muted-foreground text-sm">
-                Yes. We offer flexible preventive maintenance programs customized to your facility. These 
-                help extend equipment life, reduce emergency repairs, and maintain warranty coverage.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">What if my system breaks down?</h3>
-              <p className="text-muted-foreground text-sm">
-                We provide 24/7 emergency service. Call our emergency line and a technician will be 
-                dispatched promptly to get your system back online as quickly as possible.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Can you help with energy efficiency upgrades?</h3>
-              <p className="text-muted-foreground text-sm">
-                Absolutely. We conduct comprehensive energy audits and recommend upgrades that reduce 
-                operating costs. Many clients see 25-35% energy savings after our optimizations.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Do you work on existing systems?</h3>
-              <p className="text-muted-foreground text-sm">
-                Yes, we retrofit, upgrade, and repair existing systems. Even older equipment can often be 
-                optimized for better performance and efficiency.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">What warranties do you provide?</h3>
-              <p className="text-muted-foreground text-sm">
-                We offer manufacturer warranties on equipment plus our own workmanship warranties. Details 
-                depend on the project scope and will be discussed during your consultation.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+      <FAQSection />
 
       {/* Service Areas */}
       <section className="bg-background py-16">

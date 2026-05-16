@@ -1,13 +1,4 @@
-// Dynamic imports to handle missing swr package
-let useSWRMutation: any = null;
-
-try {
-  const mutationModule = require('swr/mutation');
-  useSWRMutation = mutationModule.default;
-} catch (error) {
-  console.warn('SWR not available. Please install axios and swr packages: npm install axios swr');
-}
-
+import useSWRMutation from 'swr/mutation';
 import { useApiGet, useApiPost, useApiPut, useApiDelete } from '@/lib/hooks/use-api';
 import api from '@/lib/api';
 
@@ -76,17 +67,32 @@ export interface PriorityResponse {
 
 // Get all FAQs
 export function useFAQs() {
-  return useApiGet<FAQ[]>(process.env.NEXT_PUBLIC_API_URL+'/faqs/');
+  return useApiGet<FAQ[]>(process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + '/faqs/' : null, {
+    fetcher: async (url: string) => {
+      const response = await api.get(url);
+      return response.data.data;
+    }
+  });
 }
 
 // Get visible FAQs (for frontend)
 export function useVisibleFAQs() {
-  return useApiGet<FAQ[]>(process.env.NEXT_PUBLIC_API_URL+'/faqs/visible');
+  return useApiGet<FAQ[]>(process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + '/faqs/visible' : null, {
+    fetcher: async (url: string) => {
+      const response = await api.get(url);
+      return response.data.data;
+    }
+  });
 }
 
 // Get FAQ by ID
 export function useFAQ(faqId: number | null) {
-  return useApiGet<FAQ>(faqId ? process.env.NEXT_PUBLIC_API_URL+`/faqs/${faqId}` : null);
+  return useApiGet<FAQ>(faqId && process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + `/faqs/${faqId}` : null, {
+    fetcher: async (url: string) => {
+      const response = await api.get(url);
+      return response.data.data;
+    }
+  });
 }
 
 // Create FAQ
