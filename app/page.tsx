@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import HeroSection from '@/components/hero-section';
 import FeatureCard from '@/components/feature-card';
 import TestimonialsSection from '@/components/testimonials-section';
+import FAQSection from '@/components/faq-section';
 import { getServices, getProducts, getProjects } from '@/lib/mockDatabase';
 
 export default function Home() {
@@ -184,6 +185,9 @@ export default function Home() {
 
       {/* Testimonials Section */}
       <TestimonialsSection />
+
+      {/* FAQ Section */}
+      <FAQSection />
 
       {/* CTA Section */}
       <section className="bg-primary text-primary-foreground py-16">
