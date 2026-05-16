@@ -379,8 +379,14 @@ export default function ProductsPage() {
 
       {/* Product Detail Dialog */}
       {selectedProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-[1400px] h-[80vh] overflow-hidden shadow-2xl flex flex-col lg:flex-row scale-[1.05]">
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelectedProduct(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-[1400px] h-[80vh] overflow-hidden shadow-2xl flex flex-col lg:flex-row scale-[1.05]"
+            onClick={(e) => e.stopPropagation()}
+          >
             
             {/* Close Button */}
             <button
