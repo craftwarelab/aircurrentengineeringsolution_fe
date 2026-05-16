@@ -303,11 +303,11 @@ export default function ProductsPage() {
                 {displayedProducts.map((product) => {
                   const displayPrice = product.sale_price || product.price;
                   return (
-                    <div
-                      key={product.id}
-                      className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all flex flex-col"
-                    >
-                      <div className="h-48 bg-gradient-to-br from-secondary to-muted flex items-center justify-center relative">
+                     <div
+                       key={product.id}
+                       className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03]"
+                     >
+                      <div className="h-56 bg-gradient-to-br from-secondary to-muted flex items-center justify-center relative overflow-hidden">
                         <div className="text-center">
                           <div className="text-4xl mb-2">❄️</div>
                           <span className="text-xs text-muted-foreground font-medium">HVAC EQUIPMENT</span>
@@ -317,9 +317,9 @@ export default function ProductsPage() {
                         )}
                       </div>
 
-                      <div className="p-5 flex flex-col flex-1">
+                      <div className="p-6 flex flex-col flex-1">
                         <div className="flex items-start justify-between mb-2">
-                          <h3 className="font-semibold text-lg text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                           <h3 className="font-semibold text-xl text-foreground group-hover:text-accent transition-colors line-clamp-2">
                             {product.name}
                           </h3>
                         </div>
@@ -337,7 +337,7 @@ export default function ProductsPage() {
                         {displayPrice && (
                           <div className="mt-4 mb-4">
                             <div className="flex items-baseline gap-2">
-                              <span className="text-2xl font-bold text-foreground">${displayPrice.toLocaleString()}</span>
+                              <span className="text-3xl font-bold text-foreground">${displayPrice.toLocaleString()}</span>
                               {product.sale_price && product.price && (
                                 <span className="text-sm text-muted-foreground line-through">${product.price.toLocaleString()}</span>
                               )}
