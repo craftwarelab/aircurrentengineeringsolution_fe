@@ -17,7 +17,7 @@ export default function HeroSection({
   subtitle,
   description,
   ctaText = 'Get Started',
-  ctaHref = '/contact',
+  ctaHref = '/inquiries',
   secondaryCtaText,
   secondaryCtaHref,
   variant = 'default',
