@@ -23,6 +23,10 @@ export default function ServicesPage() {
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
 
+  // Service Dialog State
+  const [selectedService, setSelectedService] = useState<Service | null>(null);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+
   // Ensure minimum services for demo
   let services = [...allServices];
   if (services.length < 20) {
@@ -182,10 +186,14 @@ export default function ServicesPage() {
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {filteredServices.map((service) => (
+                 {filteredServices.map((service) => (
                    <div
                      key={service.id}
-                     className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03]"
+                     onClick={() => {
+                       setSelectedService(service);
+                       setSelectedImageIndex(0);
+                     }}
+                     className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03] cursor-pointer"
                    >
                     {/* Service Icon */}
                     <div className="h-40 bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center relative overflow-hidden">
@@ -220,9 +228,104 @@ export default function ServicesPage() {
                 ))}
               </div>
             )}
-          </div>
+           </div>
         </div>
       </div>
+
+      {/* Service Detail Dialog */}
+      {selectedService && (
+        <div 
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelectedService(null)}
+        >
+          <div 
+            className="bg-white rounded-2xl w-full max-w-[1400px] h-[80vh] overflow-hidden shadow-2xl flex flex-col lg:flex-row scale-[1.05]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedService(null)}
+              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100"
+            >
+              <X size={20} />
+            </button>
+
+            {/* Left: Image Gallery (2/3 width) */}
+            <div className="lg:w-2/3 bg-gray-50 p-10 flex flex-col">
+              <div className="flex-1 flex items-center justify-center bg-white rounded-xl border mb-4 overflow-hidden">
+                <div className="text-center">
+                  <div className="text-8xl mb-4">⚙️</div>
+                  <div className="text-lg font-medium text-gray-500">Service Image {selectedImageIndex + 1}</div>
+                </div>
+              </div>
+
+              {/* Thumbnails */}
+              <div className="flex gap-3 overflow-x-auto pb-2">
+                {[1, 2, 3, 4].map((_, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImageIndex(index)}
+                    className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
+                      selectedImageIndex === index ? 'border-accent' : 'border-gray-200'
+                    }`}
+                  >
+                    <div className="w-full h-full bg-gradient-to-br from-primary/10 to-accent/10 flex items-center justify-center">
+                      <span className="text-3xl">⚙️</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Right: Service Info (1/3 width) */}
+            <div className="lg:w-1/3 p-6 flex flex-col overflow-y-auto">
+              <div className="mb-6">
+                {selectedService.category && (
+                  <span className="inline-block text-sm px-3 py-1 bg-accent/10 text-accent rounded-full mb-3">
+                    {selectedService.category}
+                  </span>
+                )}
+                <h1 className="text-3xl font-bold text-gray-900 mb-4">
+                  {selectedService.name}
+                </h1>
+              </div>
+
+              {/* Scrollable Description */}
+              <div className="flex-1 overflow-y-auto pr-2 mb-6">
+                <h3 className="font-semibold text-lg mb-3">Service Description</h3>
+                <p className="text-gray-600 leading-relaxed text-sm">
+                  {selectedService.description}
+                </p>
+                
+                {/* Extra content for scroll demo */}
+                <div className="mt-6 space-y-4 text-sm text-gray-600">
+                  <p>Our certified technicians bring years of industry experience to every project, ensuring the highest standards of quality and reliability.</p>
+                  <p>We use only premium-grade equipment and follow strict safety protocols to deliver results that exceed expectations.</p>
+                  <p>Every service includes a comprehensive inspection report and maintenance recommendations for long-term system health.</p>
+                </div>
+              </div>
+
+              {/* Actions - Fixed at bottom */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t mt-auto">
+                <Button asChild size="lg" className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <Link href={`/contact?service=${encodeURIComponent(selectedService.name)}`}>
+                    Request Service
+                  </Link>
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="lg" 
+                  className="flex-1"
+                  onClick={() => setSelectedService(null)}
+                >
+                  Close
+                </Button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
