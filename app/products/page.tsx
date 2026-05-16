@@ -1,168 +1,329 @@
-import HeroSection from '@/components/hero-section';
-import FeatureCard from '@/components/feature-card';
-import { getProducts } from '@/lib/mockDatabase';
-import { Button } from '@/components/ui/button';
-import Link from 'next/link';
+'use client';
 
-export default function Products() {
-  const products = getProducts();
-  
-  const types = [...new Set(products.map(p => p.type))];
-  const productsByType: Record<string, typeof products> = {};
-  
-  types.forEach(type => {
-    productsByType[type] = products.filter(p => p.type === type);
-  });
+import { useState, useMemo, useEffect, useRef } from 'react';
+import Link from 'next/link';
+import { Search, Filter, ArrowUpDown, X } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { getProducts, getProductCategories, getProductSubcategories } from '@/lib/mockDatabase';
+
+interface Product {
+  id: string;
+  name: string;
+  short_description?: string;
+  description: string;
+  price?: number;
+  sale_price?: number;
+  type?: string;
+  specifications?: Record<string, string>;
+}
+
+export default function ProductsPage() {
+  let allProducts = getProducts() as Product[];
+
+  // Ensure at least 30 products for demo (duplicate if necessary)
+  if (allProducts.length < 30) {
+    const needed = 30 - allProducts.length;
+    const duplicates: Product[] = [];
+    for (let i = 0; i < needed; i++) {
+      const base = allProducts[i % Math.max(allProducts.length, 1)];
+      duplicates.push({
+        ...base,
+        id: `${base.id}-demo-${i}`,
+        name: `${base.name} ${Math.floor(i / allProducts.length) + 1}`,
+      });
+    }
+    allProducts = [...allProducts, ...duplicates];
+  }
+  const subcategories = getProductSubcategories();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [sortOption, setSortOption] = useState<'name-asc' | 'name-desc' | 'price-low' | 'price-high'>('name-asc');
+  const [visibleCount, setVisibleCount] = useState(60);
+  const observerRef = useRef<HTMLDivElement>(null);
+
+  const filteredProducts = useMemo(() => {
+    let result = [...allProducts];
+
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      result = result.filter(
+        (p) =>
+          p.name.toLowerCase().includes(q) ||
+          (p.short_description && p.short_description.toLowerCase().includes(q)) ||
+          p.description.toLowerCase().includes(q)
+      );
+    }
+
+    if (selectedCategory !== 'All') {
+      result = result.filter((p) => p.type === selectedCategory || !p.type);
+    }
+
+    if (selectedSubcategory !== 'All') {
+      result = result.filter((p) =>
+        p.name.toLowerCase().includes(selectedSubcategory.toLowerCase()) ||
+        (p.description && p.description.toLowerCase().includes(selectedSubcategory.toLowerCase()))
+      );
+    }
+
+    const min = minPrice ? parseFloat(minPrice) : 0;
+    const max = maxPrice ? parseFloat(maxPrice) : Infinity;
+    result = result.filter((p) => {
+      const price = p.sale_price || p.price || 0;
+      return price >= min && price <= max;
+    });
+
+    result.sort((a, b) => {
+      if (sortOption === 'name-asc') return a.name.localeCompare(b.name);
+      if (sortOption === 'name-desc') return b.name.localeCompare(a.name);
+      if (sortOption === 'price-low') {
+        const priceA = a.sale_price || a.price || 0;
+        const priceB = b.sale_price || b.price || 0;
+        return priceA - priceB;
+      }
+      if (sortOption === 'price-high') {
+        const priceA = a.sale_price || a.price || 0;
+        const priceB = b.sale_price || b.price || 0;
+        return priceB - priceA;
+      }
+      return 0;
+    });
+
+    return result;
+  }, [allProducts, searchQuery, selectedCategory, selectedSubcategory, minPrice, maxPrice, sortOption]);
+
+  const displayedProducts = filteredProducts.slice(0, Math.min(visibleCount, filteredProducts.length));
+
+  const productCategories = getProductCategories();
+  const productTypes = ['All', ...productCategories.map(c => c.name)];
+
+  // Reset visible count when filters change
+  useEffect(() => {
+    setVisibleCount(60);
+  }, [searchQuery, selectedCategory, selectedSubcategory, minPrice, maxPrice, sortOption]);
+
+  // Infinite scroll with Intersection Observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && visibleCount < filteredProducts.length) {
+          setVisibleCount((prev) => Math.min(prev + 18, filteredProducts.length));
+        }
+      },
+      { threshold: 0.1, rootMargin: '300px' }
+    );
+
+    if (observerRef.current) {
+      observer.observe(observerRef.current);
+    }
+
+    return () => observer.disconnect();
+  }, [visibleCount, filteredProducts.length]);
 
   return (
     <>
-      {/* Hero Section */}
-      <HeroSection
-        title="Our Products"
-        subtitle="Quality Equipment"
-        description="We offer a curated selection of industry-leading HVAC and ventilation equipment, all backed by our expertise and service excellence."
-      />
+      <section className="bg-background py-8">
+        <div className="flex flex-col lg:flex-row gap-8 px-4 sm:px-6 lg:px-8">
+          
+          {/* Sidebar */}
+          <div className="w-full lg:w-72 flex-shrink-0">
+            <div className="bg-card border border-border rounded-xl p-6 sticky top-24 space-y-8">
+              
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Search size={16} /> Search
+                </h4>
+                <div className="relative">
+                  <input
+                    type="text"
+                    placeholder="Search products..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
+                  />
+                  {searchQuery && (
+                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-muted-foreground">
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              </div>
 
-      {/* Products Grid */}
-      <section className="bg-background py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="space-y-16">
-            {types.map((type) => (
-              <div key={type}>
-                <h2 className="text-2xl font-bold text-foreground mb-8">{type}</h2>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {productsByType[type].map((product) => (
-                    <FeatureCard
-                      key={product.id}
-                      title={product.name}
-                      description={product.description}
-                      category={product.type}
-                      specs={product.specifications}
-                    />
+              <div>
+                <h4 className="font-semibold mb-3">Categories</h4>
+                <div className="space-y-1 text-sm">
+                  {productTypes.map((type) => (
+                    <button
+                      key={type}
+                      onClick={() => {
+                        setSelectedCategory(type);
+                        setSelectedSubcategory('All');
+                      }}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${
+                        selectedCategory === type ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                      }`}
+                    >
+                      {type}
+                    </button>
                   ))}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* Product Benefits */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-foreground mb-12">Why Our Products?</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Premium Quality</h3>
-              <p className="text-muted-foreground">
-                We partner with leading manufacturers who share our commitment to quality, reliability, 
-                and innovation. Every product is rigorously tested and selected for performance.
-              </p>
-            </div>
-            
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Expert Selection</h3>
-              <p className="text-muted-foreground">
-                Our engineers evaluate products to ensure they meet industry standards and are suited 
-                for your specific application and operating conditions.
-              </p>
-            </div>
-            
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Comprehensive Support</h3>
-              <p className="text-muted-foreground">
-                From selection and installation to commissioning and ongoing maintenance, we provide 
-                complete support to maximize your equipment&apos;s performance and lifespan.
-              </p>
-            </div>
-            
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Energy Efficiency</h3>
-              <p className="text-muted-foreground">
-                All our products meet or exceed current energy efficiency standards, helping reduce 
-                operating costs while minimizing environmental impact.
-              </p>
-            </div>
-            
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Warranty Coverage</h3>
-              <p className="text-muted-foreground">
-                Our products come with comprehensive manufacturer warranties, and we stand behind our 
-                installation and service work with additional guarantees.
-              </p>
-            </div>
-            
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-xl font-semibold text-foreground mb-4">Availability</h3>
-              <p className="text-muted-foreground">
-                We maintain strategic inventory of popular products and have established relationships 
-                with manufacturers for quick delivery of specialized equipment.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
+              {selectedCategory !== 'All' && subcategories.length > 0 && (
+                <div>
+                  <h4 className="font-semibold mb-3">Subcategories</h4>
+                  <div className="space-y-1 text-sm">
+                    <button
+                      onClick={() => setSelectedSubcategory('All')}
+                      className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${
+                        selectedSubcategory === 'All' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                      }`}
+                    >
+                      All Subcategories
+                    </button>
+                    {subcategories.map((sub) => (
+                        <button
+                          key={sub.id}
+                          onClick={() => setSelectedSubcategory(sub.name)}
+                          className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${
+                            selectedSubcategory === sub.name ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                          }`}
+                        >
+                          {sub.name}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
 
-      {/* Product Categories */}
-      <section className="bg-background py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-foreground mb-6">Product Categories</h2>
-          <p className="text-lg text-muted-foreground mb-12 max-w-3xl">
-            We offer products across the full spectrum of HVAC and ventilation needs, from primary system 
-            components to advanced controls and optimization systems.
-          </p>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[
-              {
-                name: 'HVAC Units',
-                desc: 'Rooftop units, split systems, and packaged equipment for diverse applications',
-              },
-              {
-                name: 'Ventilation Equipment',
-                desc: 'ERVs, makeup air units, exhaust fans, and specialized ventilation systems',
-              },
-              {
-                name: 'Controls & Automation',
-                desc: 'Building management systems, sensors, and smart controls for optimization',
-              },
-              {
-                name: 'Filtration & Air Quality',
-                desc: 'Advanced filters, UV sterilization, and air quality monitoring systems',
-              },
-              {
-                name: 'Ductwork & Accessories',
-                desc: 'Custom ductwork, dampers, diffusers, and installation components',
-              },
-              {
-                name: 'Maintenance Supplies',
-                desc: 'Filter media, refrigerants, and professional maintenance materials',
-              },
-            ].map((category, idx) => (
-              <div key={idx} className="bg-card border border-border rounded-lg p-6">
-                <h3 className="text-lg font-semibold text-foreground mb-2">{category.name}</h3>
-                <p className="text-sm text-muted-foreground">{category.desc}</p>
+              <div>
+                <h4 className="font-semibold mb-3">Price Range</h4>
+                <div className="space-y-3">
+                  <div className="flex gap-2">
+                    <input
+                      type="number"
+                      placeholder="Min"
+                      value={minPrice}
+                      onChange={(e) => setMinPrice(e.target.value)}
+                      className="w-1/2 border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                    <input
+                      type="number"
+                      placeholder="Max"
+                      value={maxPrice}
+                      onChange={(e) => setMaxPrice(e.target.value)}
+                      className="w-1/2 border border-border rounded-lg px-3 py-2 text-sm"
+                    />
+                  </div>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => { setMinPrice(''); setMaxPrice(''); }}>
+                    Clear Price
+                  </Button>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-6 text-balance">
-            Need Equipment for Your Project?
-          </h2>
-          <p className="text-lg text-primary-foreground/90 mb-8 max-w-2xl mx-auto">
-            Contact us for product recommendations, pricing, and availability. Our team will help you 
-            select the perfect equipment for your specific needs.
-          </p>
-          <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Link href="/contact">Request Product Information</Link>
-          </Button>
+              <div>
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <ArrowUpDown size={16} /> Sort By
+                </h4>
+                <select
+                  value={sortOption}
+                  onChange={(e) => setSortOption(e.target.value as any)}
+                  className="w-full border border-border rounded-lg px-3 py-2 text-sm bg-background"
+                >
+                  <option value="name-asc">Name: A to Z</option>
+                  <option value="name-desc">Name: Z to A</option>
+                  <option value="price-low">Price: Low to High</option>
+                  <option value="price-high">Price: High to Low</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Products Grid */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center justify-between mb-6">
+              <div className="text-sm text-muted-foreground">
+                Showing <span className="font-medium text-foreground">{displayedProducts.length}</span> of {filteredProducts.length} products
+              </div>
+            </div>
+
+            {filteredProducts.length === 0 ? (
+              <div className="text-center py-16 bg-card border border-border rounded-xl">
+                <Filter className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                <h3 className="text-xl font-semibold">No products found</h3>
+                <p className="text-muted-foreground mt-2">Try adjusting your filters.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
+                {displayedProducts.map((product) => {
+                  const displayPrice = product.sale_price || product.price;
+                  return (
+                    <div
+                      key={product.id}
+                      className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-lg transition-all flex flex-col"
+                    >
+                      <div className="h-48 bg-gradient-to-br from-secondary to-muted flex items-center justify-center relative">
+                        <div className="text-center">
+                          <div className="text-4xl mb-2">❄️</div>
+                          <span className="text-xs text-muted-foreground font-medium">HVAC EQUIPMENT</span>
+                        </div>
+                        {product.sale_price && (
+                          <div className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">SALE</div>
+                        )}
+                      </div>
+
+                      <div className="p-5 flex flex-col flex-1">
+                        <div className="flex items-start justify-between mb-2">
+                          <h3 className="font-semibold text-lg text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                            {product.name}
+                          </h3>
+                        </div>
+
+                        {product.type && (
+                          <span className="inline-block text-xs px-2.5 py-0.5 bg-accent/10 text-accent rounded-full w-fit mb-3">
+                            {product.type}
+                          </span>
+                        )}
+
+                        <p className="text-sm text-muted-foreground line-clamp-3 flex-1">
+                          {product.short_description || product.description}
+                        </p>
+
+                        {displayPrice && (
+                          <div className="mt-4 mb-4">
+                            <div className="flex items-baseline gap-2">
+                              <span className="text-2xl font-bold text-foreground">${displayPrice.toLocaleString()}</span>
+                              {product.sale_price && product.price && (
+                                <span className="text-sm text-muted-foreground line-through">${product.price.toLocaleString()}</span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground">Starting price • Contact for quote</p>
+                          </div>
+                        )}
+
+                        <Button asChild className="w-full mt-auto bg-accent hover:bg-accent/90 text-accent-foreground">
+                          <Link href={`/contact?product=${encodeURIComponent(product.name)}`}>Request Quote</Link>
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Infinite Scroll Sentinel */}
+            {visibleCount < filteredProducts.length && (
+              <div ref={observerRef} className="flex justify-center py-8">
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-accent border-t-transparent" />
+                  Loading more products...
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </section>
     </>
