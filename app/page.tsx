@@ -3,6 +3,7 @@ import { ArrowRight, Zap, Shield, Users, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import HeroSection from '@/components/hero-section';
 import FeatureCard from '@/components/feature-card';
+import TestimonialsSection from '@/components/testimonials-section';
 import { getServices, getProducts, getProjects } from '@/lib/mockDatabase';
 
 export default function Home() {
@@ -180,6 +181,9 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Testimonials Section */}
+      <TestimonialsSection />
 
       {/* CTA Section */}
       <section className="bg-primary text-primary-foreground py-16">
