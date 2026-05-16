@@ -12,6 +12,7 @@ export default function Contact() {
         title="Get in Touch"
         subtitle="Contact Us"
         description="Ready to discuss your HVAC and ventilation needs? Our team is here to help. Contact us today for a free consultation."
+        ctaText=""
       />
 
       {/* Main Contact Section */}

@@ -49,13 +49,15 @@ export default function HeroSection({
           )}
 
           <div className="flex flex-col sm:flex-row gap-4 pt-4">
-            <Button
-              asChild
-              size="lg"
-              className="bg-accent hover:bg-accent/90 text-accent-foreground font-semibold"
-            >
-              <Link href={ctaHref}>{ctaText}</Link>
-            </Button>
+            {ctaText && (
+              <Button
+                asChild
+                size="lg"
+                className="bg-accent hover:bg-accent/90 text-accent-foreground font-semibold"
+              >
+                <Link href={ctaHref}>{ctaText}</Link>
+              </Button>
+            )}
             
             {secondaryCtaText && secondaryCtaHref && (
               <Button
