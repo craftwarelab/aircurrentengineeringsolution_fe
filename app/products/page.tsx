@@ -126,32 +126,33 @@ export default function ProductsPage() {
   return (
     <>
       <section className="bg-background py-8">
+        {/* Search Bar - Top of Page */}
+        <div className="px-4 sm:px-6 lg:px-8 mb-8">
+          <div className="relative max-w-2xl">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
+            <input
+              type="text"
+              placeholder="Search products..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-12 pr-4 py-3 text-lg border border-border rounded-xl bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-accent"
+            />
+            {searchQuery && (
+              <button 
+                onClick={() => setSearchQuery('')} 
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              >
+                <X size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="flex flex-col lg:flex-row gap-8 px-4 sm:px-6 lg:px-8">
           
           {/* Sidebar */}
           <div className="w-full lg:w-72 flex-shrink-0">
-            <div className="bg-card border border-border rounded-xl p-6 sticky top-24 space-y-8">
-              
-              <div>
-                <h4 className="font-semibold mb-3 flex items-center gap-2">
-                  <Search size={16} /> Search
-                </h4>
-                <div className="relative">
-                  <input
-                    type="text"
-                    placeholder="Search products..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full border border-border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-accent"
-                  />
-                  {searchQuery && (
-                    <button onClick={() => setSearchQuery('')} className="absolute right-3 top-2.5 text-muted-foreground">
-                      <X size={14} />
-                    </button>
-                  )}
-                </div>
-              </div>
-
+            <div className="bg-card border border-border rounded-xl p-6 sticky top-24 min-h-[calc(100vh-140px)] space-y-8">
               <div>
                 <h4 className="font-semibold mb-3">Categories</h4>
                 <div className="space-y-1 text-sm">
