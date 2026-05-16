@@ -46,7 +46,7 @@ export default function ProductsPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All');
+  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [sortOption, setSortOption] = useState<'name-asc' | 'name-desc' | 'price-low' | 'price-high'>('name-asc');
@@ -77,13 +77,11 @@ export default function ProductsPage() {
       });
     }
 
-    if (selectedSubcategory !== 'All') {
-      const subLower = selectedSubcategory.toLowerCase();
-      result = result.filter((p) =>
-        p.name.toLowerCase().includes(subLower) ||
-        (p.description && p.description.toLowerCase().includes(subLower)) ||
-        (p.type && p.type.toLowerCase().includes(subLower))
-      );
+    if (selectedSubcategories.length > 0) {
+      result = result.filter((p) => {
+        const productText = `${p.name} ${p.description || ''} ${p.type || ''}`.toLowerCase();
+        return selectedSubcategories.some(sub => productText.includes(sub.toLowerCase()));
+      });
     }
 
     const min = minPrice ? parseFloat(minPrice) : 0;
@@ -110,7 +108,7 @@ export default function ProductsPage() {
     });
 
     return result;
-  }, [allProducts, searchQuery, selectedCategories, selectedSubcategory, minPrice, maxPrice, sortOption]);
+  }, [allProducts, searchQuery, selectedCategories, selectedSubcategories, minPrice, maxPrice, sortOption]);
 
   const displayedProducts = filteredProducts.slice(0, Math.min(visibleCount, filteredProducts.length));
 
@@ -120,7 +118,7 @@ export default function ProductsPage() {
   // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(60);
-  }, [searchQuery, selectedCategories, selectedSubcategory, minPrice, maxPrice, sortOption]);
+  }, [searchQuery, selectedCategories, selectedSubcategories, minPrice, maxPrice, sortOption]);
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
@@ -210,25 +208,35 @@ export default function ProductsPage() {
                 <div>
                   <h4 className="font-semibold mb-3">Subcategories</h4>
                   <div className="space-y-1 text-sm">
-                    <button
-                      onClick={() => setSelectedSubcategory('All')}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${
-                        selectedSubcategory === 'All' ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                      }`}
-                    >
-                      All Subcategories
-                    </button>
-                    {subcategories.map((sub) => (
+                    {subcategories.map((sub) => {
+                      const isSelected = selectedSubcategories.includes(sub.name);
+                      return (
                         <button
                           key={sub.id}
-                          onClick={() => setSelectedSubcategory(sub.name)}
-                          className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${
-                            selectedSubcategory === sub.name ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                          onClick={() => {
+                            setSelectedSubcategories(prev =>
+                              isSelected
+                                ? prev.filter(s => s !== sub.name)
+                                : [...prev, sub.name]
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+                            isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
                           }`}
                         >
-                          {sub.name}
+                          <span>{sub.name}</span>
+                          {isSelected && <span className="text-xs">✓</span>}
                         </button>
-                      ))}
+                      );
+                    })}
+                    {selectedSubcategories.length > 0 && (
+                      <button
+                        onClick={() => setSelectedSubcategories([])}
+                        className="text-xs text-muted-foreground hover:text-foreground mt-1"
+                      >
+                        Clear all subcategories
+                      </button>
+                    )}
                   </div>
                 </div>
               )}
