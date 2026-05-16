@@ -161,41 +161,6 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-foreground mb-12">What Our Clients Say</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-card border border-border rounded-lg p-8">
-              <p className="text-muted-foreground mb-4">
-                &quot;Air Current Eng. Solutions designed and installed our HVAC system perfectly. Their expertise and attention 
-                to detail resulted in a system that exceeds our expectations. Highly recommended.&quot;
-              </p>
-              <p className="font-semibold text-foreground">Sarah Johnson</p>
-              <p className="text-sm text-muted-foreground">Facilities Director, Modern Office Complex</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <p className="text-muted-foreground mb-4">
-                &quot;The energy savings from their optimization recommendations were immediate and significant. 
-                We&apos;ve reduced our HVAC operating costs by over 30% in the first year alone.&quot;
-              </p>
-              <p className="font-semibold text-foreground">Michael Chen</p>
-              <p className="text-sm text-muted-foreground">Operations Manager, Manufacturing Facility</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <p className="text-muted-foreground mb-4">
-                &quot;Their 24/7 emergency service has been invaluable. When we had a critical system failure, 
-                they responded immediately and got us back up and running within hours.&quot;
-              </p>
-              <p className="font-semibold text-foreground">Dr. Patricia Williams</p>
-              <p className="text-sm text-muted-foreground">Facilities Manager, Metropolitan Hospital</p>
-            </div>
-          </div>
-        </div>
-      </section>
     </>
   );
 }
