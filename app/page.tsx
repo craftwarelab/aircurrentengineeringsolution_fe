@@ -49,7 +49,7 @@ export default function Home() {
         subtitle="Engineering Excellence"
         description="Air Current Engineering delivers cutting-edge HVAC and ventilation systems tailored to your facility's unique needs. From design through installation and maintenance, we ensure optimal comfort and efficiency."
         ctaText="Request a Consultation"
-        ctaHref="/contact"
+        ctaHref="/inquiries"
         secondaryCtaText="View Our Services"
         secondaryCtaHref="/services"
         variant="home"

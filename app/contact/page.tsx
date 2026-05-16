@@ -1,20 +1,10 @@
 'use client';
 
-import HeroSection from '@/components/hero-section';
-import ContactForm from '@/components/contact-form';
 import { Phone, Mail, MapPin, Clock } from 'lucide-react';
 
 export default function Contact() {
   return (
     <>
-      {/* Hero Section */}
-      <HeroSection
-        title="Get in Touch"
-        subtitle="Contact Us"
-        description="Ready to discuss your HVAC and ventilation needs? Our team is here to help. Contact us today for a free consultation."
-        ctaText=""
-      />
-
       {/* Main Contact Section */}
       <section className="bg-background py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,14 +61,25 @@ export default function Contact() {
               </div>
             </div>
 
-            {/* Contact Form */}
+            {/* Google Maps Location */}
             <div className="lg:col-span-2">
-              <div className="bg-card rounded-lg border border-border p-8">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Send us a Message</h2>
-                <p className="text-muted-foreground mb-8">
-                  Fill out the form below and we&apos;ll get back to you as soon as possible.
-                </p>
-                <ContactForm />
+              <div className="bg-card rounded-lg border border-border overflow-hidden h-full">
+                <div className="p-6 border-b border-border">
+                  <h2 className="text-2xl font-bold text-foreground mb-1">Visit Our Office</h2>
+                  <p className="text-muted-foreground">Colombo 7, Sri Lanka</p>
+                </div>
+                <div className="relative w-full h-[450px]">
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3960.866!2d79.861!3d6.927!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae2593f3f3f3f3f%3A0x3f3f3f3f3f3f3f3f!2sColombo%207!5e0!3m2!1sen!2slk!4v1710000000000"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="absolute inset-0"
+                  />
+                </div>
               </div>
             </div>
           </div>

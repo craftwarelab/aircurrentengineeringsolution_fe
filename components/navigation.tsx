@@ -86,7 +86,7 @@ export default function Navigation() {
               asChild
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
-              <Link href="/contact">Get Quote</Link>
+              <Link href="/inquiries">Get Quote</Link>
             </Button>
           </div>
 
