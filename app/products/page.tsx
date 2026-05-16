@@ -20,16 +20,24 @@ interface Product {
 export default function ProductsPage() {
   let allProducts = getProducts() as Product[];
 
+  // Get available categories for assignment
+  const availableCategories = getProductCategories();
+
   // Ensure at least 30 products for demo (duplicate if necessary)
   if (allProducts.length < 30) {
     const needed = 30 - allProducts.length;
     const duplicates: Product[] = [];
     for (let i = 0; i < needed; i++) {
       const base = allProducts[i % Math.max(allProducts.length, 1)];
+      const randomCategory = availableCategories.length > 0 
+        ? availableCategories[i % availableCategories.length] 
+        : null;
+
       duplicates.push({
         ...base,
         id: `${base.id}-demo-${i}`,
         name: `${base.name} ${Math.floor(i / allProducts.length) + 1}`,
+        type: randomCategory ? randomCategory.name : base.type,
       });
     }
     allProducts = [...allProducts, ...duplicates];
@@ -37,7 +45,7 @@ export default function ProductsPage() {
   const subcategories = getProductSubcategories();
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedSubcategory, setSelectedSubcategory] = useState<string>('All');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
@@ -58,14 +66,23 @@ export default function ProductsPage() {
       );
     }
 
-    if (selectedCategory !== 'All') {
-      result = result.filter((p) => p.type === selectedCategory || !p.type);
+    if (selectedCategories.length > 0) {
+      result = result.filter((p) => {
+        const productCategory = (p.type || '').toLowerCase();
+        return selectedCategories.some(cat => 
+          productCategory === cat.toLowerCase() ||
+          p.name.toLowerCase().includes(cat.toLowerCase()) ||
+          (p.description && p.description.toLowerCase().includes(cat.toLowerCase()))
+        );
+      });
     }
 
     if (selectedSubcategory !== 'All') {
+      const subLower = selectedSubcategory.toLowerCase();
       result = result.filter((p) =>
-        p.name.toLowerCase().includes(selectedSubcategory.toLowerCase()) ||
-        (p.description && p.description.toLowerCase().includes(selectedSubcategory.toLowerCase()))
+        p.name.toLowerCase().includes(subLower) ||
+        (p.description && p.description.toLowerCase().includes(subLower)) ||
+        (p.type && p.type.toLowerCase().includes(subLower))
       );
     }
 
@@ -93,7 +110,7 @@ export default function ProductsPage() {
     });
 
     return result;
-  }, [allProducts, searchQuery, selectedCategory, selectedSubcategory, minPrice, maxPrice, sortOption]);
+  }, [allProducts, searchQuery, selectedCategories, selectedSubcategory, minPrice, maxPrice, sortOption]);
 
   const displayedProducts = filteredProducts.slice(0, Math.min(visibleCount, filteredProducts.length));
 
@@ -103,7 +120,7 @@ export default function ProductsPage() {
   // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(60);
-  }, [searchQuery, selectedCategory, selectedSubcategory, minPrice, maxPrice, sortOption]);
+  }, [searchQuery, selectedCategories, selectedSubcategory, minPrice, maxPrice, sortOption]);
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
@@ -156,24 +173,40 @@ export default function ProductsPage() {
               <div>
                 <h4 className="font-semibold mb-3">Categories</h4>
                 <div className="space-y-1 text-sm">
-                  {productTypes.map((type) => (
+                  {productTypes.slice(1).map((type) => {  // skip 'All'
+                    const isSelected = selectedCategories.includes(type);
+                    return (
+                      <button
+                        key={type}
+                        onClick={() => {
+                          setSelectedCategories(prev =>
+                            isSelected
+                              ? prev.filter(c => c !== type)
+                              : [...prev, type]
+                          );
+                          setSelectedSubcategory('All');
+                        }}
+                        className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+                          isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                        }`}
+                      >
+                        <span>{type}</span>
+                        {isSelected && <span className="text-xs">✓</span>}
+                      </button>
+                    );
+                  })}
+                  {selectedCategories.length > 0 && (
                     <button
-                      key={type}
-                      onClick={() => {
-                        setSelectedCategory(type);
-                        setSelectedSubcategory('All');
-                      }}
-                      className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors ${
-                        selectedCategory === type ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                      }`}
+                      onClick={() => setSelectedCategories([])}
+                      className="text-xs text-muted-foreground hover:text-foreground mt-1"
                     >
-                      {type}
+                      Clear all categories
                     </button>
-                  ))}
+                  )}
                 </div>
               </div>
 
-              {selectedCategory !== 'All' && subcategories.length > 0 && (
+              {selectedCategories.length > 0 && subcategories.length > 0 && (
                 <div>
                   <h4 className="font-semibold mb-3">Subcategories</h4>
                   <div className="space-y-1 text-sm">
