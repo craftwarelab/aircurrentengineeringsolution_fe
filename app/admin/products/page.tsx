@@ -30,6 +30,7 @@ import {
 import { useCreateProduct, useProducts, type CreateProductRequest } from '@/lib/hooks/use-products';
 import { useCreateTags } from '@/lib/hooks/use-tags';
 import api from '@/lib/api';
+import { getCloudinaryImageUrl } from '@/lib/cloudinary';
 import axios from 'axios';
 import { toast } from 'sonner';
 
@@ -50,6 +51,23 @@ export default function AdminProducts() {
   const [isCreationStatusOpen, setIsCreationStatusOpen] = useState(false);
   const [creationStatus, setCreationStatus] = useState('');
   const [currentImageProgress, setCurrentImageProgress] = useState({ current: 0, total: 0 });
+
+  // Existing product images for editing
+  const [existingProductImages, setExistingProductImages] = useState<any[]>([]);
+  // Image IDs marked for deletion (will be deleted on Update)
+  const [imagesToDelete, setImagesToDelete] = useState<number[]>([]);
+
+  // Product update status dialog states
+  const [isUpdateStatusOpen, setIsUpdateStatusOpen] = useState(false);
+  const [updateStatus, setUpdateStatus] = useState('');
+  const [updateImageProgress, setUpdateImageProgress] = useState({ current: 0, total: 0 });
+
+  // Product delete confirmation & progress states
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleteProgressOpen, setIsDeleteProgressOpen] = useState(false);
+  const [deleteProgressStatus, setDeleteProgressStatus] = useState('');
 
   const [formData, setFormData] = useState({
     name: '',
@@ -132,6 +150,8 @@ export default function AdminProducts() {
     setMetaKeywords([]);
     setProductImages([]);
     setMainImageIndex(0);
+    setExistingProductImages([]);
+    setImagesToDelete([]);
   };
 
   const handleNameChange = (name: string) => {
@@ -205,16 +225,91 @@ export default function AdminProducts() {
 
     try {
       if (editingProduct) {
-        // Keep mock update for now
-        const productData = {
-          ...formData,
+        // Show update progress dialog
+        setIsUpdateStatusOpen(true);
+        setUpdateStatus('Preparing update...');
+        setUpdateImageProgress({ current: 0, total: 0 });
+
+        // Step 1: Delete images marked for deletion
+        if (imagesToDelete.length > 0) {
+          setUpdateStatus(`Deleting ${imagesToDelete.length} image(s)...`);
+          for (const imageId of imagesToDelete) {
+            try {
+              await api.delete(`/products/images/${editingProduct.id}/${imageId}`);
+            } catch (e) {
+              console.error('Failed to delete image', imageId);
+            }
+          }
+        }
+
+        // Step 2: Upload new images
+        if (productImages.length > 0) {
+          setUpdateImageProgress({ current: 0, total: productImages.length });
+          setUpdateStatus('Uploading new images...');
+
+          for (let i = 0; i < productImages.length; i++) {
+            const file = productImages[i];
+            const isMain = i === mainImageIndex;
+
+            const formDataImage = new FormData();
+            formDataImage.append('image', file);
+            formDataImage.append('position', String(i));
+            formDataImage.append('is_main', String(isMain));
+
+            setUpdateStatus(`Uploading image ${i + 1} of ${productImages.length}...`);
+            setUpdateImageProgress({ current: i + 1, total: productImages.length });
+
+            try {
+              await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${editingProduct.id}`,
+                formDataImage,
+                {
+                  headers: { 'Content-Type': 'multipart/form-data' },
+                  withCredentials: true,
+                }
+              );
+            } catch (e) {
+              console.error('Failed to upload new image', i);
+            }
+          }
+        }
+
+        // Step 3: Update product data
+        setUpdateStatus('Updating product details...');
+
+        const updateData = {
+          name: formData.name,
+          slug: formData.slug,
+          code: formData.code || undefined,
+          sku: formData.sku || undefined,
+          model: formData.model || undefined,
+          price: formData.price,
+          sale_price: formData.sale_price || undefined,
+          description: formData.description || undefined,
+          short_description: formData.short_description || undefined,
+          status: formData.status,
+          is_featured: formData.is_featured,
+          seo_title: formData.seo_title || undefined,
+          seo_description: formData.seo_description || undefined,
+          meta_keywords: metaKeywords.join(', ') || undefined,
           category_ids: selectedCategories,
           subcategory_ids: selectedSubcategories,
-        } as any;
+        };
 
-        updateProduct(editingProduct.id, productData);
+        await api.put(`/products/${editingProduct.id}`, updateData);
         mutateProducts();
-        toast.success('Product updated successfully');
+
+        setUpdateStatus('Product updated successfully!');
+
+        // Close status dialog after short delay
+        setTimeout(() => {
+          setIsUpdateStatusOpen(false);
+          setUpdateStatus('');
+          setUpdateImageProgress({ current: 0, total: 0 });
+          setImagesToDelete([]);
+          setProductImages([]);
+          toast.success('Product updated successfully');
+        }, 1200);
       } else {
         // Step 1: Create tags first if any new tags were entered
         let tagIds: number[] = [];
@@ -331,16 +426,17 @@ export default function AdminProducts() {
     }
   };
 
-  const handleEdit = (product: Product) => {
+  const handleEdit = async (product: Product) => {
     setEditingProduct(product);
+
     setFormData({
-      name: product.name,
+      name: product.name || '',
       slug: product.slug || '',
       code: product.code || '',
       sku: product.sku || '',
       model: product.model || '',
-      price: product.price,
-      sale_price: product.sale_price || 0,
+      price: product.price ? Number(product.price) : 0,
+      sale_price: product.sale_price ? Number(product.sale_price) : 0,
       description: product.description || '',
       short_description: product.short_description || '',
       status: product.status || 'draft',
@@ -349,28 +445,88 @@ export default function AdminProducts() {
       seo_description: product.seo_description || '',
       meta_keywords: product.meta_keywords || '',
     });
+
+    // Meta keywords as chips
     const existingKeywords = product.meta_keywords
       ? product.meta_keywords.split(',').map(k => k.trim()).filter(Boolean)
       : [];
     setMetaKeywords(existingKeywords);
-    setSelectedCategories([]); // Would need to be populated from product relationships
-    setSelectedSubcategories([]); // Would need to be populated from product relationships
-    setSelectedTags([]); // Would need to be populated from product relationships
-    setProductImages([]); // Would need to be populated from product images
-    setMainImageIndex(0); // Would need to be populated from product data
+
+    // Pre-select categories and subcategories from existing product data
+    const catIds = (product.categories || []).map((c: any) => c.id);
+    const subIds = (product.subcategories || []).map((s: any) => s.id);
+    setSelectedCategories(catIds);
+    setSelectedSubcategories(subIds);
+
+    // Tags will be implemented later
+    setSelectedTags([]);
+
+    // New images to upload
+    setProductImages([]);
+    setMainImageIndex(0);
+
+    // Load existing images using raw axios (avoid auth interceptor issues)
+    setImagesToDelete([]); // reset deleted images
+    try {
+      const imagesResponse = await axios.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${product.id}`,
+        { withCredentials: true }
+      );
+      setExistingProductImages(imagesResponse.data?.data || []);
+    } catch (error) {
+      console.error('Failed to load product images:', error);
+      setExistingProductImages([]);
+    }
+
     setIsDialogOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (confirm('Are you sure you want to delete this product?')) {
+  const handleDelete = (product: Product) => {
+    setProductToDelete(product);
+    setDeleteConfirmText('');
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteProduct = async () => {
+    if (!productToDelete || deleteConfirmText.toLowerCase() !== 'delete') {
+      toast.error('Please type "delete" to confirm');
+      return;
+    }
+
+    setIsDeleteDialogOpen(false);
+
+    // Show progress dialog
+    setIsDeleteProgressOpen(true);
+    setDeleteProgressStatus('Deleting product images...');
+
+    try {
+      // Step 1: Delete all images first
       try {
-        deleteProduct(id);
-        mutateProducts();
-        setCurrentPage(1);
-        toast.success('Product deleted successfully');
-      } catch (error) {
-        toast.error('Failed to delete product');
+        await api.delete(`/products/images/product/${productToDelete.id}/all`);
+      } catch (imgError) {
+        console.error('Failed to delete images (may have none):', imgError);
+        // Continue even if image deletion fails (product might have no images)
       }
+
+      // Step 2: Delete the product
+      setDeleteProgressStatus('Deleting product...');
+      deleteProduct(productToDelete.id.toString());
+      mutateProducts();
+      setCurrentPage(1);
+
+      setDeleteProgressStatus('Product deleted successfully!');
+      
+      setTimeout(() => {
+        setIsDeleteProgressOpen(false);
+        setDeleteProgressStatus('');
+        setProductToDelete(null);
+        toast.success('Product deleted successfully');
+      }, 1000);
+
+    } catch (error) {
+      setIsDeleteProgressOpen(false);
+      setDeleteProgressStatus('');
+      toast.error('Failed to delete product');
     }
   };
 
@@ -611,6 +767,60 @@ export default function AdminProducts() {
                     mainImageIndex={mainImageIndex}
                     onMainImageChange={setMainImageIndex}
                   />
+
+                  {/* Show existing images when editing */}
+                  {editingProduct && existingProductImages.length > 0 && (
+                    <div>
+                      <Label className="text-sm font-medium text-gray-700 mb-2 block">Current Images</Label>
+                      <div className="grid grid-cols-5 gap-3">
+                        {existingProductImages.map((img, index) => (
+                          <div key={img.id} className="relative group border rounded-md overflow-hidden">
+                            <img
+                              src={getCloudinaryImageUrl(img.url, { width: 120, height: 120, crop: 'fill' })}
+                              alt={`Product image ${index + 1}`}
+                              className="w-full h-24 object-cover"
+                            />
+                            {img.is_main && (
+                              <div className="absolute top-1 left-1 bg-blue-600 text-white text-[10px] px-1.5 py-0.5 rounded">
+                                Main
+                              </div>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => {
+                                // Mark image for deletion (will delete on Update)
+                                setImagesToDelete(prev => [...prev, img.id]);
+                                setExistingProductImages(existingProductImages.filter(i => i.id !== img.id));
+                                toast.info('Image will be deleted when you click Update');
+                              }}
+                              className="absolute top-1 right-1 bg-red-600 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition"
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                            {!img.is_main && (
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await api.patch(`/products/images/product/${editingProduct.id}/main/${img.id}`);
+                                    // Refresh images
+                                    const res = await api.get(`/products/images/product/${editingProduct.id}`);
+                                    setExistingProductImages(res.data?.data || []);
+                                    toast.success('Main image updated');
+                                  } catch (e) {
+                                    toast.error('Failed to set main image');
+                                  }
+                                }}
+                                className="absolute bottom-1 right-1 bg-white/90 text-gray-700 text-[10px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition"
+                              >
+                                Set Main
+                              </button>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Status & Settings */}
@@ -786,13 +996,13 @@ export default function AdminProducts() {
                       >
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleDelete(product.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
+                       <Button
+                         variant="outline"
+                         size="sm"
+                         onClick={() => handleDelete(product)}
+                       >
+                         <Trash2 className="h-4 w-4" />
+                       </Button>
                     </div>
                   </TableCell>
                 </TableRow>
@@ -881,6 +1091,94 @@ export default function AdminProducts() {
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Product Update Status Dialog */}
+      <Dialog open={isUpdateStatusOpen} onOpenChange={setIsUpdateStatusOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Updating Product</DialogTitle>
+            <DialogDescription>
+              Please wait while we update your product and images.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-600 text-center">{updateStatus}</p>
+              
+              {updateImageProgress.total > 0 && (
+                <div className="w-full">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Images processed</span>
+                    <span>{updateImageProgress.current} / {updateImageProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: `${(updateImageProgress.current / updateImageProgress.total) * 100}%` 
+                      }} 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete Product</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. All images and data will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-gray-600">
+              To confirm deletion, please type <strong>delete</strong> below:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder='Type "delete" here'
+              className="font-mono"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button 
+              variant="destructive" 
+              onClick={confirmDeleteProduct}
+              disabled={deleteConfirmText.toLowerCase() !== 'delete'}
+            >
+              Delete Product
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Progress Dialog */}
+      <Dialog open={isDeleteProgressOpen} onOpenChange={setIsDeleteProgressOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Deleting Product</DialogTitle>
+            <DialogDescription>
+              Please wait while we remove all images and delete the product.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="w-8 h-8 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-600 text-center">{deleteProgressStatus}</p>
             </div>
           </div>
         </DialogContent>
