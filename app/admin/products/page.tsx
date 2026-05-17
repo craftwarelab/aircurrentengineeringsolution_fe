@@ -29,6 +29,9 @@ import {
   type ProductSubcategory
 } from '@/lib/hooks/use-categories';
 import { useCreateProduct, type CreateProductRequest } from '@/lib/hooks/use-products';
+import { useCreateTags, type ProductTag } from '@/lib/hooks/use-tags';
+import api from '@/lib/api';
+import axios from 'axios';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
@@ -65,8 +68,9 @@ export default function AdminProducts() {
   const { data: categoriesData } = useCategories();
   const { data: categoryTree } = useCategoryTree();
 
-  // API mutation hook
+  // API mutation hooks
   const { trigger: createProduct, isMutating: creatingProduct } = useCreateProduct();
+  const { trigger: createTags, isMutating: creatingTags } = useCreateTags();
 
   const categories: ProductCategory[] = Array.isArray(categoriesData) ? categoriesData : (categoriesData as any)?.data || [];
   const subcategories: ProductSubcategory[] = (categoryTree || []).flatMap((cat: ProductCategory) => cat.subcategories || []);
@@ -197,8 +201,16 @@ export default function AdminProducts() {
         setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
         toast.success('Product updated successfully');
       } else {
-        // Real API call for create
-        const productData: CreateProductRequest = {
+        // Step 1: Create tags first if any new tags were entered
+        let tagIds: number[] = [];
+        if (selectedTags.length > 0) {
+          const tagResponse = await createTags(selectedTags);
+          const createdTags = (tagResponse as any)?.data || [];
+          tagIds = createdTags.map((tag: ProductTag) => tag.id);
+        }
+
+        // Step 2: Create product as DRAFT first (required for image upload flow)
+        const draftProductData: CreateProductRequest = {
           name: formData.name,
           slug: formData.slug,
           code: formData.code || undefined,
@@ -208,25 +220,78 @@ export default function AdminProducts() {
           sale_price: formData.sale_price || undefined,
           description: formData.description || undefined,
           short_description: formData.short_description || undefined,
-          status: formData.status,
+          status: 'draft', // Always create as draft first
           is_featured: formData.is_featured,
           seo_title: formData.seo_title || undefined,
           seo_description: formData.seo_description || undefined,
           meta_keywords: metaKeywords.join(', ') || undefined,
           category_ids: selectedCategories,
           subcategory_ids: selectedSubcategories,
-          tag_ids: [],
+          tag_ids: tagIds,
           images: [],
         };
 
-        await createProduct({
+        const createdProductResponse: any = await createProduct({
           url: `${process.env.NEXT_PUBLIC_API_URL}/products/`,
-          data: productData,
+          data: draftProductData,
         });
 
-        // Refresh local list (in real app we would refetch)
+        // Handle different possible response structures from create product
+        const productId = 
+          createdProductResponse?.data?.id || 
+          createdProductResponse?.id ||
+          createdProductResponse?.data?.data?.id;
+
+        if (!productId) {
+          console.error('Create product response:', createdProductResponse);
+          throw new Error('Failed to get created product ID from response');
+        }
+
+        console.log('Draft product created with ID:', productId);
+
+        // Step 3: Upload images one by one (max 5)
+        if (productImages.length > 0) {
+          for (let i = 0; i < productImages.length; i++) {
+            const file = productImages[i];
+            const isMain = i === mainImageIndex;
+
+            const formDataImage = new FormData();
+            formDataImage.append('image', file);
+            formDataImage.append('position', String(i));
+            formDataImage.append('is_main', String(isMain));
+
+            console.log(`Uploading image ${i + 1}/${productImages.length} for product ${productId}`);
+
+            try {
+              // Use raw axios for file upload with explicit multipart/form-data
+              const imageUploadResponse = await axios.post(
+                `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${productId}`,
+                formDataImage,
+                {
+                  headers: {
+                    'Content-Type': 'multipart/form-data',
+                  },
+                  withCredentials: true,
+                }
+              );
+              console.log(`Image ${i + 1} uploaded successfully:`, imageUploadResponse.data);
+            } catch (imageError: any) {
+              console.error(`Failed to upload image ${i + 1}:`, imageError.response?.data || imageError);
+              // Continue with other images even if one fails
+            }
+          }
+        }
+
+        // Step 4: Update product status to final user-selected status
+        if (formData.status !== 'draft') {
+          await api.put(`/products/${productId}`, {
+            status: formData.status,
+          });
+        }
+
+        // Refresh local list
         setProducts(getProducts());
-        toast.success('Product created successfully');
+        toast.success('Product created successfully with images');
       }
 
       setIsDialogOpen(false);
@@ -609,8 +674,8 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={creatingProduct}>
-                  {creatingProduct && 'Creating... '}
+                <Button type="submit" disabled={creatingProduct || creatingTags}>
+                  {(creatingProduct || creatingTags) && 'Creating... '}
                   {editingProduct ? 'Update Product' : 'Create Product'}
                 </Button>
               </DialogFooter>
