@@ -16,7 +16,6 @@ import { Plus, Edit, Trash2, X, Tag as TagIcon } from 'lucide-react';
 import ImageUpload from '@/components/ui/image-upload';
 import {
   getProducts,
-  addProduct,
   updateProduct,
   deleteProduct,
   getProductTags,
@@ -29,6 +28,7 @@ import {
   type ProductCategory,
   type ProductSubcategory
 } from '@/lib/hooks/use-categories';
+import { useCreateProduct, type CreateProductRequest } from '@/lib/hooks/use-products';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
@@ -36,10 +36,12 @@ export default function AdminProducts() {
   const [tags, setTags] = useState<ProductTag[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<number[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
+  const [metaKeywordInput, setMetaKeywordInput] = useState('');
+  const [metaKeywords, setMetaKeywords] = useState<string[]>([]);
   const [productImages, setProductImages] = useState<File[]>([]);
   const [mainImageIndex, setMainImageIndex] = useState(0);
 
@@ -63,6 +65,9 @@ export default function AdminProducts() {
   const { data: categoriesData } = useCategories();
   const { data: categoryTree } = useCategoryTree();
 
+  // API mutation hook
+  const { trigger: createProduct, isMutating: creatingProduct } = useCreateProduct();
+
   const categories: ProductCategory[] = Array.isArray(categoriesData) ? categoriesData : (categoriesData as any)?.data || [];
   const subcategories: ProductSubcategory[] = (categoryTree || []).flatMap((cat: ProductCategory) => cat.subcategories || []);
 
@@ -72,7 +77,7 @@ export default function AdminProducts() {
   }, []);
 
   const availableSubcategories = selectedCategories.length > 0
-    ? subcategories.filter(sub => selectedCategories.includes(String(sub?.category_id)))
+    ? subcategories.filter(sub => selectedCategories.includes(sub?.category_id))
     : [];
 
   const generateSlug = (name: string) => {
@@ -104,6 +109,8 @@ export default function AdminProducts() {
     setSelectedSubcategories([]);
     setSelectedTags([]);
     setTagInput('');
+    setMetaKeywordInput('');
+    setMetaKeywords([]);
     setProductImages([]);
     setMainImageIndex(0);
   };
@@ -116,19 +123,19 @@ export default function AdminProducts() {
     });
   };
 
-  const handleCategoryChange = (categoryId: string, checked: boolean) => {
+  const handleCategoryChange = (categoryId: number, checked: boolean) => {
     if (checked) {
       setSelectedCategories([...selectedCategories, categoryId]);
     } else {
       setSelectedCategories(selectedCategories.filter(id => id !== categoryId));
       setSelectedSubcategories(selectedSubcategories.filter(subId => {
-        const subcategory = subcategories.find(s => String(s.id) === subId);
-        return subcategory && String(subcategory.category_id) !== categoryId;
+        const subcategory = subcategories.find(s => s.id === subId);
+        return subcategory && subcategory.category_id !== categoryId;
       }));
     }
   };
 
-  const handleSubcategoryChange = (subcategoryId: string, checked: boolean) => {
+  const handleSubcategoryChange = (subcategoryId: number, checked: boolean) => {
     if (checked) {
       setSelectedSubcategories([...selectedSubcategories, subcategoryId]);
     } else {
@@ -155,33 +162,77 @@ export default function AdminProducts() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const addMetaKeyword = () => {
+    const trimmed = metaKeywordInput.trim().replace(/,$/, '');
+    if (trimmed && !metaKeywords.includes(trimmed)) {
+      setMetaKeywords([...metaKeywords, trimmed]);
+    }
+    setMetaKeywordInput('');
+  };
+
+  const removeMetaKeyword = (keyword: string) => {
+    setMetaKeywords(metaKeywords.filter(k => k !== keyword));
+  };
+
+  const handleMetaKeywordKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addMetaKeyword();
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     try {
-      const productData = {
-        ...formData,
-        category_ids: selectedCategories,
-        subcategory_ids: selectedSubcategories,
-        tags: selectedTags,
-        images: productImages, // This will be processed by the backend
-        main_image_index: mainImageIndex,
-      } as unknown as Omit<Product, 'id'>;
-
       if (editingProduct) {
+        // Keep mock update for now
+        const productData = {
+          ...formData,
+          category_ids: selectedCategories,
+          subcategory_ids: selectedSubcategories,
+        } as any;
+
         updateProduct(editingProduct.id, productData);
         setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
         toast.success('Product updated successfully');
       } else {
-        const newProduct = addProduct(productData);
-        setProducts([...products, newProduct]);
-        toast.success('Product added successfully');
+        // Real API call for create
+        const productData: CreateProductRequest = {
+          name: formData.name,
+          slug: formData.slug,
+          code: formData.code || undefined,
+          sku: formData.sku || undefined,
+          model: formData.model || undefined,
+          price: formData.price,
+          sale_price: formData.sale_price || undefined,
+          description: formData.description || undefined,
+          short_description: formData.short_description || undefined,
+          status: formData.status,
+          is_featured: formData.is_featured,
+          seo_title: formData.seo_title || undefined,
+          seo_description: formData.seo_description || undefined,
+          meta_keywords: metaKeywords.join(', ') || undefined,
+          category_ids: selectedCategories,
+          subcategory_ids: selectedSubcategories,
+          tag_ids: [],
+          images: [],
+        };
+
+        await createProduct({
+          url: `${process.env.NEXT_PUBLIC_API_URL}/products/`,
+          data: productData,
+        });
+
+        // Refresh local list (in real app we would refetch)
+        setProducts(getProducts());
+        toast.success('Product created successfully');
       }
 
       setIsDialogOpen(false);
       resetForm();
-    } catch (error) {
-      toast.error('Failed to save product');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.message || 'Failed to save product');
     }
   };
 
@@ -203,6 +254,10 @@ export default function AdminProducts() {
       seo_description: product.seo_description || '',
       meta_keywords: product.meta_keywords || '',
     });
+    const existingKeywords = product.meta_keywords
+      ? product.meta_keywords.split(',').map(k => k.trim()).filter(Boolean)
+      : [];
+    setMetaKeywords(existingKeywords);
     setSelectedCategories([]); // Would need to be populated from product relationships
     setSelectedSubcategories([]); // Would need to be populated from product relationships
     setSelectedTags([]); // Would need to be populated from product relationships
@@ -368,8 +423,8 @@ export default function AdminProducts() {
                            <div key={category.id} className="flex items-center space-x-2">
                              <Checkbox
                                id={`category-${category.id}`}
-                               checked={selectedCategories.includes(String(category.id))}
-                               onCheckedChange={(checked) => handleCategoryChange(String(category.id), checked as boolean)}
+                               checked={selectedCategories.includes(category.id)}
+                               onCheckedChange={(checked) => handleCategoryChange(category.id, checked as boolean)}
                              />
                              <Label htmlFor={`category-${category.id}`} className="text-sm">
                                {category.name}
@@ -389,8 +444,8 @@ export default function AdminProducts() {
                              <div key={subcategory.id} className="flex items-center space-x-2">
                                <Checkbox
                                  id={`subcategory-${subcategory.id}`}
-                                 checked={selectedSubcategories.includes(String(subcategory.id))}
-                                 onCheckedChange={(checked) => handleSubcategoryChange(String(subcategory.id), checked as boolean)}
+                                 checked={selectedSubcategories.includes(subcategory.id)}
+                                 onCheckedChange={(checked) => handleSubcategoryChange(subcategory.id, checked as boolean)}
                                />
                                <Label htmlFor={`subcategory-${subcategory.id}`} className="text-sm">
                                  {subcategory.name}
@@ -516,15 +571,37 @@ export default function AdminProducts() {
                     />
                   </div>
 
-                  <div>
-                    <Label htmlFor="meta_keywords">Meta Keywords</Label>
-                    <Input
-                      id="meta_keywords"
-                      value={formData.meta_keywords}
-                      onChange={(e) => setFormData({ ...formData, meta_keywords: e.target.value })}
-                      placeholder="Comma-separated keywords"
-                    />
-                  </div>
+                   <div>
+                     <Label htmlFor="meta_keywords">Meta Keywords</Label>
+                     <div className="flex gap-2 mb-2">
+                       <Input
+                         id="meta_keywords"
+                         value={metaKeywordInput}
+                         onChange={(e) => setMetaKeywordInput(e.target.value)}
+                         onKeyDown={handleMetaKeywordKeyDown}
+                         onBlur={addMetaKeyword}
+                         placeholder="Type keyword and press comma or Enter"
+                         className="flex-1"
+                       />
+                     </div>
+                     {metaKeywords.length > 0 && (
+                       <div className="flex flex-wrap gap-2 p-3 border rounded-md bg-gray-50">
+                         {metaKeywords.map((keyword, index) => (
+                           <Badge key={index} variant="secondary" className="flex items-center gap-1">
+                             {keyword}
+                             <button
+                               type="button"
+                               onClick={() => removeMetaKeyword(keyword)}
+                               className="ml-1 hover:bg-gray-200 rounded-full p-0.5"
+                             >
+                               <X className="h-3 w-3" />
+                             </button>
+                           </Badge>
+                         ))}
+                       </div>
+                     )}
+                     <p className="text-xs text-gray-500 mt-1">Separate keywords with comma or Enter</p>
+                   </div>
                 </div>
               </div>
 
@@ -532,7 +609,8 @@ export default function AdminProducts() {
                 <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit">
+                <Button type="submit" disabled={creatingProduct}>
+                  {creatingProduct && 'Creating... '}
                   {editingProduct ? 'Update Product' : 'Create Product'}
                 </Button>
               </DialogFooter>
