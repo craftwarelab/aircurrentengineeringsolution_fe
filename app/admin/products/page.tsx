@@ -48,6 +48,11 @@ export default function AdminProducts() {
   const [productImages, setProductImages] = useState<File[]>([]);
   const [mainImageIndex, setMainImageIndex] = useState(0);
 
+  // Product creation status dialog states
+  const [isCreationStatusOpen, setIsCreationStatusOpen] = useState(false);
+  const [creationStatus, setCreationStatus] = useState('');
+  const [currentImageProgress, setCurrentImageProgress] = useState({ current: 0, total: 0 });
+
   const [formData, setFormData] = useState({
     name: '',
     slug: '',
@@ -231,6 +236,10 @@ export default function AdminProducts() {
           images: [],
         };
 
+        // Show status dialog
+        setIsCreationStatusOpen(true);
+        setCreationStatus('Creating draft product...');
+
         const createdProductResponse: any = await createProduct({
           url: `${process.env.NEXT_PUBLIC_API_URL}/products/`,
           data: draftProductData,
@@ -243,14 +252,15 @@ export default function AdminProducts() {
           createdProductResponse?.data?.data?.id;
 
         if (!productId) {
-          console.error('Create product response:', createdProductResponse);
           throw new Error('Failed to get created product ID from response');
         }
 
-        console.log('Draft product created with ID:', productId);
+        setCreationStatus('Draft product created. Uploading images...');
 
         // Step 3: Upload images one by one (max 5)
         if (productImages.length > 0) {
+          setCurrentImageProgress({ current: 0, total: productImages.length });
+
           for (let i = 0; i < productImages.length; i++) {
             const file = productImages[i];
             const isMain = i === mainImageIndex;
@@ -260,11 +270,11 @@ export default function AdminProducts() {
             formDataImage.append('position', String(i));
             formDataImage.append('is_main', String(isMain));
 
-            console.log(`Uploading image ${i + 1}/${productImages.length} for product ${productId}`);
+            setCreationStatus(`Uploading image ${i + 1} of ${productImages.length}...`);
+            setCurrentImageProgress({ current: i + 1, total: productImages.length });
 
             try {
-              // Use raw axios for file upload with explicit multipart/form-data
-              const imageUploadResponse = await axios.post(
+              await axios.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${productId}`,
                 formDataImage,
                 {
@@ -274,7 +284,6 @@ export default function AdminProducts() {
                   withCredentials: true,
                 }
               );
-              console.log(`Image ${i + 1} uploaded successfully:`, imageUploadResponse.data);
             } catch (imageError: any) {
               console.error(`Failed to upload image ${i + 1}:`, imageError.response?.data || imageError);
               // Continue with other images even if one fails
@@ -284,14 +293,24 @@ export default function AdminProducts() {
 
         // Step 4: Update product status to final user-selected status
         if (formData.status !== 'draft') {
+          setCreationStatus('Finalizing product status...');
           await api.put(`/products/${productId}`, {
             status: formData.status,
           });
         }
 
+        setCreationStatus('Product created successfully!');
+
         // Refresh local list
         setProducts(getProducts());
         toast.success('Product created successfully with images');
+
+        // Close status dialog after a short delay
+        setTimeout(() => {
+          setIsCreationStatusOpen(false);
+          setCreationStatus('');
+          setCurrentImageProgress({ current: 0, total: 0 });
+        }, 1500);
       }
 
       setIsDialogOpen(false);
@@ -762,9 +781,45 @@ export default function AdminProducts() {
             <div className="text-center py-8 text-gray-500">
               No products found. Create your first product above.
             </div>
-          )}
-        </CardContent>
-      </Card>
-    </div>
-  );
-}
+           )}
+         </CardContent>
+       </Card>
+
+      {/* Product Creation Status Dialog */}
+      <Dialog open={isCreationStatusOpen} onOpenChange={setIsCreationStatusOpen}>
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Creating Product</DialogTitle>
+            <DialogDescription>
+              Please wait while we create your product and upload images.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-6">
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              <p className="text-sm text-gray-600 text-center">{creationStatus}</p>
+              
+              {currentImageProgress.total > 0 && (
+                <div className="w-full">
+                  <div className="flex justify-between text-xs text-gray-500 mb-1">
+                    <span>Images uploaded</span>
+                    <span>{currentImageProgress.current} / {currentImageProgress.total}</span>
+                  </div>
+                  <div className="w-full bg-gray-200 rounded-full h-2">
+                    <div 
+                      className="bg-blue-600 h-2 rounded-full transition-all duration-300" 
+                      style={{ 
+                        width: `${(currentImageProgress.current / currentImageProgress.total) * 100}%` 
+                      }} 
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+     </div>
+   );
+ }
