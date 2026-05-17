@@ -15,7 +15,6 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Plus, Edit, Trash2, X, Tag as TagIcon } from 'lucide-react';
 import ImageUpload from '@/components/ui/image-upload';
 import {
-  getProducts,
   updateProduct,
   deleteProduct,
   getProductTags,
@@ -28,14 +27,13 @@ import {
   type ProductCategory,
   type ProductSubcategory
 } from '@/lib/hooks/use-categories';
-import { useCreateProduct, type CreateProductRequest } from '@/lib/hooks/use-products';
-import { useCreateTags, type ProductTag } from '@/lib/hooks/use-tags';
+import { useCreateProduct, useProducts, type CreateProductRequest } from '@/lib/hooks/use-products';
+import { useCreateTags } from '@/lib/hooks/use-tags';
 import api from '@/lib/api';
 import axios from 'axios';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
-  const [products, setProducts] = useState<Product[]>([]);
   const [tags, setTags] = useState<ProductTag[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -73,6 +71,19 @@ export default function AdminProducts() {
   const { data: categoriesData } = useCategories();
   const { data: categoryTree } = useCategoryTree();
 
+  // Real products from API
+  const { data: productsResponse, error: productsError, isLoading: productsLoading, mutate: mutateProducts } = useProducts(1, 50);
+  const products = productsResponse?.data || [];
+
+  // Frontend pagination
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+  const totalPages = Math.ceil(products.length / itemsPerPage);
+  const paginatedProducts = products.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+
   // API mutation hooks
   const { trigger: createProduct, isMutating: creatingProduct } = useCreateProduct();
   const { trigger: createTags, isMutating: creatingTags } = useCreateTags();
@@ -81,7 +92,6 @@ export default function AdminProducts() {
   const subcategories: ProductSubcategory[] = (categoryTree || []).flatMap((cat: ProductCategory) => cat.subcategories || []);
 
   useEffect(() => {
-    setProducts(getProducts());
     setTags(getProductTags());
   }, []);
 
@@ -203,7 +213,7 @@ export default function AdminProducts() {
         } as any;
 
         updateProduct(editingProduct.id, productData);
-        setProducts(products.map(p => p.id === editingProduct.id ? { ...p, ...productData } : p));
+        mutateProducts();
         toast.success('Product updated successfully');
       } else {
         // Step 1: Create tags first if any new tags were entered
@@ -301,8 +311,9 @@ export default function AdminProducts() {
 
         setCreationStatus('Product created successfully!');
 
-        // Refresh local list
-        setProducts(getProducts());
+        // Refresh real product list and reset to first page
+        mutateProducts();
+        setCurrentPage(1);
         toast.success('Product created successfully with images');
 
         // Close status dialog after a short delay
@@ -354,7 +365,8 @@ export default function AdminProducts() {
     if (confirm('Are you sure you want to delete this product?')) {
       try {
         deleteProduct(id);
-        setProducts(products.filter(p => p.id !== id));
+        mutateProducts();
+        setCurrentPage(1);
         toast.success('Product deleted successfully');
       } catch (error) {
         toast.error('Failed to delete product');
@@ -708,20 +720,30 @@ export default function AdminProducts() {
           <CardTitle>All Products ({products.length})</CardTitle>
           <CardDescription>A list of all your products and their details</CardDescription>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Code/SKU</TableHead>
-                <TableHead>Price</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Featured</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {products.map((product) => (
+         <CardContent>
+           {productsLoading ? (
+             <div className="flex items-center justify-center py-8">
+               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+               <span className="ml-3 text-gray-600">Loading products...</span>
+             </div>
+           ) : productsError ? (
+             <div className="text-center py-8 text-red-500">
+               Error loading products: {productsError.message}
+             </div>
+           ) : (
+             <Table>
+               <TableHeader>
+                 <TableRow>
+                   <TableHead>Name</TableHead>
+                   <TableHead>Code/SKU</TableHead>
+                   <TableHead>Price</TableHead>
+                   <TableHead>Status</TableHead>
+                   <TableHead>Featured</TableHead>
+                   <TableHead className="text-right">Actions</TableHead>
+                 </TableRow>
+               </TableHeader>
+               <TableBody>
+                 {paginatedProducts.map((product: Product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">
                     <div>
@@ -738,10 +760,10 @@ export default function AdminProducts() {
                     </div>
                   </TableCell>
                   <TableCell>
-                    <div className="font-medium">${product.price?.toFixed(2)}</div>
-                    {product.sale_price && product.sale_price > 0 && (
-                      <div className="text-sm text-green-600">${product.sale_price.toFixed(2)}</div>
-                    )}
+                     <div className="font-medium">${Number(product.price).toFixed(2)}</div>
+                     {product.sale_price && Number(product.sale_price) > 0 && (
+                       <div className="text-sm text-green-600">${Number(product.sale_price).toFixed(2)}</div>
+                     )}
                   </TableCell>
                   <TableCell>
                     <Badge variant={product.status === 'active' ? 'default' : product.status === 'inactive' ? 'secondary' : 'outline'}>
@@ -774,13 +796,57 @@ export default function AdminProducts() {
                     </div>
                   </TableCell>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-          {products.length === 0 && (
-            <div className="text-center py-8 text-gray-500">
-              No products found. Create your first product above.
-            </div>
+             ))}
+               </TableBody>
+             </Table>
+           )}
+
+           {!productsLoading && !productsError && paginatedProducts.length === 0 && (
+             <div className="text-center py-8 text-gray-500">
+               No products found. Create your first product above.
+             </div>
+           )}
+
+           {/* Frontend Pagination */}
+           {totalPages > 1 && (
+             <div className="flex items-center justify-between mt-4 pt-4 border-t">
+               <div className="text-sm text-gray-600">
+                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, products.length)} of {products.length} products
+               </div>
+               <div className="flex items-center gap-2">
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                   disabled={currentPage === 1}
+                 >
+                   Previous
+                 </Button>
+                 
+                 <div className="flex items-center gap-1">
+                   {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
+                     <Button
+                       key={page}
+                       variant={currentPage === page ? "default" : "outline"}
+                       size="sm"
+                       onClick={() => setCurrentPage(page)}
+                       className="min-w-[36px]"
+                     >
+                       {page}
+                     </Button>
+                   ))}
+                 </div>
+
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                   disabled={currentPage === totalPages}
+                 >
+                   Next
+                 </Button>
+               </div>
+             </div>
            )}
          </CardContent>
        </Card>

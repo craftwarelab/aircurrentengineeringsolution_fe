@@ -1,4 +1,4 @@
-import { useApiPost } from '@/lib/hooks/use-api';
+import { useApiGet, useApiPost } from '@/lib/hooks/use-api';
 
 export interface CreateProductRequest {
   name: string;
@@ -48,4 +48,28 @@ export interface Product {
 // Create product
 export function useCreateProduct() {
   return useApiPost<Product>();
+}
+
+// Get all products with pagination
+export interface ProductsResponse {
+  success: boolean;
+  data: Product[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export function useProducts(page: number = 1, limit: number = 10, status?: string) {
+  const params = new URLSearchParams({
+    page: page.toString(),
+    limit: limit.toString(),
+  });
+  
+  if (status) params.append('status', status);
+  
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/products?${params.toString()}`;
+  return useApiGet<ProductsResponse>(url);
 }
