@@ -19,20 +19,20 @@ import {
   addProduct,
   updateProduct,
   deleteProduct,
-  getProductCategories,
-  getProductSubcategories,
   getProductTags,
   type Product,
-  type ProductCategory,
-  type ProductSubcategory,
   type ProductTag
 } from '@/lib/mockDatabase';
+import {
+  useCategories,
+  useCategoryTree,
+  type ProductCategory,
+  type ProductSubcategory
+} from '@/lib/hooks/use-categories';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
   const [products, setProducts] = useState<Product[]>([]);
-  const [categories, setCategories] = useState<ProductCategory[]>([]);
-  const [subcategories, setSubcategories] = useState<ProductSubcategory[]>([]);
   const [tags, setTags] = useState<ProductTag[]>([]);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -40,7 +40,6 @@ export default function AdminProducts() {
   const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState('');
-  const [availableSubcategories, setAvailableSubcategories] = useState<ProductSubcategory[]>([]);
   const [productImages, setProductImages] = useState<File[]>([]);
   const [mainImageIndex, setMainImageIndex] = useState(0);
 
@@ -61,24 +60,20 @@ export default function AdminProducts() {
     meta_keywords: '',
   });
 
+  const { data: categoriesData } = useCategories();
+  const { data: categoryTree } = useCategoryTree();
+
+  const categories: ProductCategory[] = Array.isArray(categoriesData) ? categoriesData : (categoriesData as any)?.data || [];
+  const subcategories: ProductSubcategory[] = (categoryTree || []).flatMap((cat: ProductCategory) => cat.subcategories || []);
+
   useEffect(() => {
     setProducts(getProducts());
-    setCategories(getProductCategories());
-    setSubcategories(getProductSubcategories());
     setTags(getProductTags());
   }, []);
 
-  // Update available subcategories when categories change
-  useEffect(() => {
-    if (selectedCategories.length > 0) {
-      const filteredSubs = subcategories.filter(sub =>
-        selectedCategories.includes(sub.category_id)
-      );
-      setAvailableSubcategories(filteredSubs);
-    } else {
-      setAvailableSubcategories([]);
-    }
-  }, [selectedCategories, subcategories]);
+  const availableSubcategories = selectedCategories.length > 0
+    ? subcategories.filter(sub => selectedCategories.includes(String(sub?.category_id)))
+    : [];
 
   const generateSlug = (name: string) => {
     return name
@@ -109,7 +104,6 @@ export default function AdminProducts() {
     setSelectedSubcategories([]);
     setSelectedTags([]);
     setTagInput('');
-    setAvailableSubcategories([]);
     setProductImages([]);
     setMainImageIndex(0);
   };
@@ -127,10 +121,9 @@ export default function AdminProducts() {
       setSelectedCategories([...selectedCategories, categoryId]);
     } else {
       setSelectedCategories(selectedCategories.filter(id => id !== categoryId));
-      // Also remove subcategories from deselected category
       setSelectedSubcategories(selectedSubcategories.filter(subId => {
-        const subcategory = subcategories.find(s => s.id === subId);
-        return subcategory && subcategory.category_id !== categoryId;
+        const subcategory = subcategories.find(s => String(s.id) === subId);
+        return subcategory && String(subcategory.category_id) !== categoryId;
       }));
     }
   };
@@ -371,18 +364,18 @@ export default function AdminProducts() {
                     <div>
                       <Label className="text-sm font-medium text-gray-700 mb-2 block">Categories</Label>
                       <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
-                        {categories.filter(c => c.is_active).map((category) => (
-                          <div key={category.id} className="flex items-center space-x-2">
-                            <Checkbox
-                              id={`category-${category.id}`}
-                              checked={selectedCategories.includes(category.id)}
-                              onCheckedChange={(checked) => handleCategoryChange(category.id, checked as boolean)}
-                            />
-                            <Label htmlFor={`category-${category.id}`} className="text-sm">
-                              {category.name}
-                            </Label>
-                          </div>
-                        ))}
+                         {categories.filter(c => c.is_active).map((category) => (
+                           <div key={category.id} className="flex items-center space-x-2">
+                             <Checkbox
+                               id={`category-${category.id}`}
+                               checked={selectedCategories.includes(String(category.id))}
+                               onCheckedChange={(checked) => handleCategoryChange(String(category.id), checked as boolean)}
+                             />
+                             <Label htmlFor={`category-${category.id}`} className="text-sm">
+                               {category.name}
+                             </Label>
+                           </div>
+                         ))}
                       </div>
                     </div>
 
@@ -391,20 +384,20 @@ export default function AdminProducts() {
                         Subcategories {selectedCategories.length === 0 && '(Select categories first)'}
                       </Label>
                       <div className="border rounded-md p-3 max-h-40 overflow-y-auto space-y-2">
-                        {availableSubcategories.length > 0 ? (
-                          availableSubcategories.filter(s => s.is_active).map((subcategory) => (
-                            <div key={subcategory.id} className="flex items-center space-x-2">
-                              <Checkbox
-                                id={`subcategory-${subcategory.id}`}
-                                checked={selectedSubcategories.includes(subcategory.id)}
-                                onCheckedChange={(checked) => handleSubcategoryChange(subcategory.id, checked as boolean)}
-                              />
-                              <Label htmlFor={`subcategory-${subcategory.id}`} className="text-sm">
-                                {subcategory.name}
-                              </Label>
-                            </div>
-                          ))
-                        ) : (
+                         {availableSubcategories.length > 0 ? (
+                           availableSubcategories.filter(s => s.is_active).map((subcategory) => (
+                             <div key={subcategory.id} className="flex items-center space-x-2">
+                               <Checkbox
+                                 id={`subcategory-${subcategory.id}`}
+                                 checked={selectedSubcategories.includes(String(subcategory.id))}
+                                 onCheckedChange={(checked) => handleSubcategoryChange(String(subcategory.id), checked as boolean)}
+                               />
+                               <Label htmlFor={`subcategory-${subcategory.id}`} className="text-sm">
+                                 {subcategory.name}
+                               </Label>
+                             </div>
+                           ))
+                         ) : (
                           <p className="text-sm text-gray-500 italic">
                             {selectedCategories.length === 0
                               ? 'Select categories above to see available subcategories'
