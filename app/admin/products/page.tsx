@@ -16,7 +16,6 @@ import { Plus, Edit, Trash2, X, Tag as TagIcon } from 'lucide-react';
 import ImageUpload from '@/components/ui/image-upload';
 import {
   updateProduct,
-  deleteProduct,
   getProductTags,
   type Product,
   type ProductTag
@@ -89,18 +88,17 @@ export default function AdminProducts() {
   const { data: categoriesData } = useCategories();
   const { data: categoryTree } = useCategoryTree();
 
-  // Real products from API
-  const { data: productsResponse, error: productsError, isLoading: productsLoading, mutate: mutateProducts } = useProducts(1, 50);
-  const products = productsResponse?.data || [];
-
-  // Frontend pagination
+  // Backend pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 10;
-  const totalPages = Math.ceil(products.length / itemsPerPage);
-  const paginatedProducts = products.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  );
+
+  // Real products from API (server-side pagination)
+  const { data: productsResponse, error: productsError, isLoading: productsLoading, mutate: mutateProducts } = useProducts(currentPage, itemsPerPage);
+  const products = productsResponse?.data?.data || productsResponse?.data || [];
+
+  // Use backend pagination info when available
+  const apiPagination = (productsResponse as any)?.data?.pagination || (productsResponse as any)?.pagination;
+  const totalPages = apiPagination?.totalPages || apiPagination?.last_page || Math.max(1, Math.ceil((productsResponse as any)?.data?.total / itemsPerPage) || 1);
 
   // API mutation hooks
   const { trigger: createProduct, isMutating: creatingProduct } = useCreateProduct();
@@ -508,9 +506,9 @@ export default function AdminProducts() {
         // Continue even if image deletion fails (product might have no images)
       }
 
-      // Step 2: Delete the product
+      // Step 2: Delete the product via real API
       setDeleteProgressStatus('Deleting product...');
-      deleteProduct(productToDelete.id.toString());
+      await api.delete(`/products/${productToDelete.id}`);
       mutateProducts();
       setCurrentPage(1);
 
@@ -953,7 +951,7 @@ export default function AdminProducts() {
                  </TableRow>
                </TableHeader>
                <TableBody>
-                 {paginatedProducts.map((product: Product) => (
+                  {products.map((product: Product) => (
                 <TableRow key={product.id}>
                   <TableCell className="font-medium">
                     <div>
@@ -1011,7 +1009,7 @@ export default function AdminProducts() {
              </Table>
            )}
 
-           {!productsLoading && !productsError && paginatedProducts.length === 0 && (
+            {!productsLoading && !productsError && products.length === 0 && (
              <div className="text-center py-8 text-gray-500">
                No products found. Create your first product above.
              </div>
@@ -1020,9 +1018,9 @@ export default function AdminProducts() {
            {/* Frontend Pagination */}
            {totalPages > 1 && (
              <div className="flex items-center justify-between mt-4 pt-4 border-t">
-               <div className="text-sm text-gray-600">
-                 Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, products.length)} of {products.length} products
-               </div>
+                <div className="text-sm text-gray-600">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, products.length)} of {(productsResponse as any)?.data?.total ?? products.length} products
+                </div>
                <div className="flex items-center gap-2">
                  <Button
                    variant="outline"
