@@ -4,45 +4,45 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { Search, Filter, ArrowUpDown, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { getProducts, getProductCategories, getProductSubcategories } from '@/lib/mockDatabase';
+import { useProducts } from '@/lib/hooks/use-products';
+import { useCategories, useCategoryTree, type ProductCategory, type ProductSubcategory } from '@/lib/hooks/use-categories';
+import { getCloudinaryImageUrl } from '@/lib/cloudinary';
+import Zoom from 'react-medium-image-zoom';
+import 'react-medium-image-zoom/dist/styles.css';
 
 interface Product {
-  id: string;
+  id: number;
   name: string;
+  slug?: string;
   short_description?: string;
-  description: string;
-  price?: number;
-  sale_price?: number;
+  description?: string;
+  price?: number | string;
+  sale_price?: number | string;
   type?: string;
-  specifications?: Record<string, string>;
+  images?: Array<{ url: string; is_main?: boolean }>;
+  categories?: any[];
+  subcategories?: any[];
 }
 
 export default function ProductsPage() {
-  let allProducts = getProducts() as Product[];
+  // Load active products from real API
+  const { data: productsResponse, isLoading: productsLoading, error: productsError } = useProducts(1, 100, 'active');
+  const apiProducts = (productsResponse as any)?.data?.data || (productsResponse as any)?.data || [];
 
-  // Get available categories for assignment
-  const availableCategories = getProductCategories();
+  // Real categories from API
+  const { data: categoriesData } = useCategories();
+  const { data: categoryTree } = useCategoryTree();
 
-  // Ensure at least 30 products for demo (duplicate if necessary)
-  if (allProducts.length < 30) {
-    const needed = 30 - allProducts.length;
-    const duplicates: Product[] = [];
-    for (let i = 0; i < needed; i++) {
-      const base = allProducts[i % Math.max(allProducts.length, 1)];
-      const randomCategory = availableCategories.length > 0 
-        ? availableCategories[i % availableCategories.length] 
-        : null;
+  const categories: ProductCategory[] = Array.isArray(categoriesData) 
+    ? categoriesData 
+    : (categoriesData as any)?.data || [];
 
-      duplicates.push({
-        ...base,
-        id: `${base.id}-demo-${i}`,
-        name: `${base.name} ${Math.floor(i / allProducts.length) + 1}`,
-        type: randomCategory ? randomCategory.name : base.type,
-      });
-    }
-    allProducts = [...allProducts, ...duplicates];
-  }
-  const subcategories = getProductSubcategories();
+  const subcategories: ProductSubcategory[] = (categoryTree || []).flatMap(
+    (cat: ProductCategory) => cat.subcategories || []
+  );
+
+  // Use real products from API
+  const allProducts = apiProducts;
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -71,20 +71,16 @@ export default function ProductsPage() {
     }
 
     if (selectedCategories.length > 0) {
-      result = result.filter((p) => {
-        const productCategory = (p.type || '').toLowerCase();
-        return selectedCategories.some(cat => 
-          productCategory === cat.toLowerCase() ||
-          p.name.toLowerCase().includes(cat.toLowerCase()) ||
-          (p.description && p.description.toLowerCase().includes(cat.toLowerCase()))
-        );
+      result = result.filter((p: any) => {
+        const productCatNames = (p.categories || []).map((c: any) => c.name.toLowerCase());
+        return selectedCategories.some(cat => productCatNames.includes(cat.toLowerCase()));
       });
     }
 
     if (selectedSubcategories.length > 0) {
-      result = result.filter((p) => {
-        const productText = `${p.name} ${p.description || ''} ${p.type || ''}`.toLowerCase();
-        return selectedSubcategories.some(sub => productText.includes(sub.toLowerCase()));
+      result = result.filter((p: any) => {
+        const productSubNames = (p.subcategories || []).map((s: any) => s.name.toLowerCase());
+        return selectedSubcategories.some(sub => productSubNames.includes(sub.toLowerCase()));
       });
     }
 
@@ -116,13 +112,14 @@ export default function ProductsPage() {
 
   const displayedProducts = filteredProducts.slice(0, Math.min(visibleCount, filteredProducts.length));
 
-  const productCategories = getProductCategories();
-  const productTypes = ['All', ...productCategories.map(c => c.name)];
+
 
   // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(60);
   }, [searchQuery, selectedCategories, selectedSubcategories, minPrice, maxPrice, sortOption]);
+
+
 
   // Infinite scroll with Intersection Observer
   useEffect(() => {
@@ -175,28 +172,32 @@ export default function ProductsPage() {
               <div>
                 <h4 className="font-semibold mb-3">Categories</h4>
                 <div className="space-y-1 text-sm">
-                  {productTypes.slice(1).map((type) => {  // skip 'All'
-                    const isSelected = selectedCategories.includes(type);
-                    return (
-                      <button
-                        key={type}
-                        onClick={() => {
-                          setSelectedCategories(prev =>
-                            isSelected
-                              ? prev.filter(c => c !== type)
-                              : [...prev, type]
-                          );
-                          setSelectedSubcategory('All');
-                        }}
-                        className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
-                          isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                        }`}
-                      >
-                        <span>{type}</span>
-                        {isSelected && <span className="text-xs">✓</span>}
-                      </button>
-                    );
-                  })}
+                  {categories.length > 0 ? (
+                    categories.map((category: ProductCategory) => {
+                      const isSelected = selectedCategories.includes(category.name);
+                      return (
+                        <button
+                          key={category.id}
+                          onClick={() => {
+                            setSelectedCategories(prev =>
+                              isSelected
+                                ? prev.filter(c => c !== category.name)
+                                : [...prev, category.name]
+                            );
+                          }}
+                          className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+                            isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                          }`}
+                        >
+                          <span>{category.name}</span>
+                          {isSelected && <span className="text-xs">✓</span>}
+                        </button>
+                      );
+                    })
+                  ) : (
+                    <p className="text-sm text-muted-foreground">No categories available</p>
+                  )}
+
                   {selectedCategories.length > 0 && (
                     <button
                       onClick={() => setSelectedCategories([])}
@@ -302,6 +303,14 @@ export default function ProductsPage() {
                 <h3 className="text-xl font-semibold">No products found</h3>
                 <p className="text-muted-foreground mt-2">Try adjusting your filters.</p>
               </div>
+            ) : productsLoading ? (
+              <div className="flex justify-center items-center py-20">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
+              </div>
+            ) : productsError ? (
+              <div className="text-center py-20 text-red-500">
+                Failed to load products. Please try again later.
+              </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 gap-6">
                 {displayedProducts.map((product) => {
@@ -315,15 +324,41 @@ export default function ProductsPage() {
                        }}
                        className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03] cursor-pointer"
                      >
-                      <div className="h-56 bg-gradient-to-br from-secondary to-muted flex items-center justify-center relative overflow-hidden">
-                        <div className="text-center">
-                          <div className="text-4xl mb-2">❄️</div>
-                          <span className="text-xs text-muted-foreground font-medium">HVAC EQUIPMENT</span>
-                        </div>
-                        {product.sale_price && (
-                          <div className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">SALE</div>
-                        )}
-                      </div>
+                        <div className="h-56 bg-muted relative overflow-hidden">
+                          {product.images && product.images.length > 0 ? (
+                            <div className="relative w-full h-full">
+                              {/* Industry Standard Skeleton Loader */}
+                              <div className="shimmer-loader absolute inset-0 bg-gray-100 rounded-xl overflow-hidden z-10">
+                                <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_2s_infinite]" />
+                              </div>
+                              <img
+                                src={getCloudinaryImageUrl(
+                                  product.images.find((img: any) => img.is_main)?.url || product.images[0].url,
+                                  { width: 400, height: 300, crop: 'fill' }
+                                )}
+                                alt={product.name}
+                                className="relative w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                                onLoad={(e) => {
+                                  const parent = e.currentTarget.parentElement as HTMLElement;
+                                  if (parent) {
+                                    const loader = parent.querySelector('.shimmer-loader') as HTMLElement;
+                                    if (loader) loader.style.display = 'none';
+                                  }
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-secondary to-muted">
+                              <div className="text-center">
+                                <div className="text-4xl mb-2">❄️</div>
+                                <span className="text-xs text-muted-foreground font-medium">HVAC EQUIPMENT</span>
+                              </div>
+                            </div>
+                          )}
+                         {product.sale_price && (
+                           <div className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">SALE</div>
+                         )}
+                       </div>
 
                       <div className="p-6 flex flex-col flex-1">
                         <div className="flex items-start justify-between mb-2">
@@ -355,7 +390,7 @@ export default function ProductsPage() {
                         )}
 
                         <Button asChild className="w-full mt-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-                          <Link href={`/contact?product=${encodeURIComponent(product.name)}`}>Request Quote</Link>
+                          <Link href={`/contact?product=${encodeURIComponent(product.name)}`}>View Product</Link>
                         </Button>
                       </div>
                     </div>
@@ -396,31 +431,58 @@ export default function ProductsPage() {
               <X size={20} />
             </button>
 
-            {/* Left: Image Gallery */}
+              {/* Left: Image Gallery */}
             <div className="lg:w-2/3 bg-gray-50 p-10 flex flex-col">
-              <div className="flex-1 flex items-center justify-center bg-white rounded-xl border mb-4 overflow-hidden">
-                <div className="text-center">
-                  <div className="text-8xl mb-4">❄️</div>
-                  <div className="text-lg font-medium text-gray-500">Product Image {selectedImageIndex + 1}</div>
-                </div>
+              <div className="flex-1 flex items-center justify-center bg-white rounded-xl border mb-4 overflow-hidden relative">
+                {selectedProduct.images && selectedProduct.images.length > 0 ? (
+                   <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
+                      {/* Industry Standard Skeleton Loader */}
+                      <div id={`dialog-loader-${selectedImageIndex}`} className="shimmer-loader absolute inset-0 bg-gray-100 rounded-xl overflow-hidden z-10">
+                        <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_2s_infinite]" />
+                      </div>
+                      <Zoom key={selectedImageIndex}>
+                        <img
+                          src={getCloudinaryImageUrl(
+                            selectedProduct.images[selectedImageIndex]?.url || selectedProduct.images[0].url,
+                            { width: 800, height: 600, crop: 'fill' }
+                          )}
+                          alt={selectedProduct.name}
+                          className="relative max-h-full max-w-full object-contain transition-transform duration-200"
+                          onLoad={() => {
+                            const loader = document.getElementById(`dialog-loader-${selectedImageIndex}`);
+                            if (loader) loader.style.display = 'none';
+                          }}
+                        />
+                      </Zoom>
+                   </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="text-8xl mb-4">❄️</div>
+                    <div className="text-lg font-medium text-gray-500">No image available</div>
+                  </div>
+                )}
               </div>
 
               {/* Thumbnails */}
-              <div className="flex gap-3 overflow-x-auto pb-2">
-                {[1, 2, 3, 4].map((_, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImageIndex(index)}
-                    className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
-                      selectedImageIndex === index ? 'border-accent' : 'border-gray-200'
-                    }`}
-                  >
-                    <div className="w-full h-full bg-gradient-to-br from-secondary to-muted flex items-center justify-center">
-                      <span className="text-3xl">❄️</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {selectedProduct.images && selectedProduct.images.length > 0 && (
+                <div className="flex gap-3 overflow-x-auto pb-2">
+                  {selectedProduct.images.map((img: any, index: number) => (
+                    <button
+                      key={index}
+                      onClick={() => setSelectedImageIndex(index)}
+                      className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
+                        selectedImageIndex === index ? 'border-accent' : 'border-gray-200'
+                      }`}
+                    >
+                      <img
+                        src={getCloudinaryImageUrl(img.url, { width: 120, height: 120, crop: 'fill' })}
+                        alt={`${selectedProduct.name} ${index + 1}`}
+                        className="w-full h-full object-cover"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Right: Product Info */}
@@ -446,21 +508,10 @@ export default function ProductsPage() {
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-gray-500">Starting price • Contact for quote</p>
-              </div>
-
-              {/* Stock */}
-              <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl">
-                <div className="flex items-center gap-2 text-green-700">
-                  <div className="w-2.5 h-2.5 bg-green-500 rounded-full"></div>
-                  <span className="font-semibold">In Stock</span>
-                </div>
-                <p className="text-sm text-green-600 mt-1">
-                  {selectedProduct.id.length * 7 + 87} units available • Ships in 2-5 business days
-                </p>
-              </div>
-
-              {/* Description */}
+                 <p className="text-sm text-gray-500">Starting price • Contact for quote</p>
+               </div>
+ 
+               {/* Description */}
               <div className="mb-8">
                 <h3 className="font-semibold text-lg mb-3">Product Description</h3>
                 <p className="text-gray-600 leading-relaxed">
@@ -485,26 +536,19 @@ export default function ProductsPage() {
 
               <div className="flex-1"></div>
 
-              {/* Actions */}
-               <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t mt-auto">
-                <Button asChild size="lg" className="flex-1 bg-accent hover:bg-accent/90 text-accent-foreground">
-                  <Link href={`/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
-                    Request Quote
-                  </Link>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  size="lg" 
-                  className="flex-1"
-                  onClick={() => setSelectedProduct(null)}
-                >
-                  Close
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </>
-  );
-}
+               {/* Actions */}
+                 <div className="pt-4 border-t mt-auto">
+                  <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                    <Link href={`/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
+                      View Product
+                    </Link>
+                  </Button>
+                </div>
+             </div>
+           </div>
+
+         </div>
+       )}
+     </>
+   );
+ }
