@@ -61,6 +61,9 @@ export default function AdminProducts() {
   const [updateStatus, setUpdateStatus] = useState('');
   const [updateImageProgress, setUpdateImageProgress] = useState({ current: 0, total: 0 });
 
+  // Selected tag IDs for update flow (so we can send correct tag_ids)
+  const [selectedTagIds, setSelectedTagIds] = useState<number[]>([]);
+ 
   // Product delete confirmation & progress states
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
@@ -272,10 +275,19 @@ export default function AdminProducts() {
           }
         }
 
-        // Step 3: Update product data
+        // Step 3: Determine tags to send on update
+        let tagIdsToSend: number[] = [];
+        if (selectedTagIds.length > 0) {
+          tagIdsToSend = selectedTagIds;
+        } else if (selectedTags.length > 0) {
+          const tagResponse = await createTags(selectedTags);
+          tagIdsToSend = (tagResponse as any)?.data?.map((t: any) => t.id) ?? [];
+        }
+
+        // Step 4: Update product data
         setUpdateStatus('Updating product details...');
 
-        const updateData = {
+        const updateData: any = {
           name: formData.name,
           slug: formData.slug,
           code: formData.code || undefined,
@@ -293,6 +305,10 @@ export default function AdminProducts() {
           category_ids: selectedCategories,
           subcategory_ids: selectedSubcategories,
         };
+
+        if (tagIdsToSend.length > 0) {
+          updateData.tag_ids = tagIdsToSend;
+        }
 
         await api.put(`/products/${editingProduct.id}`, updateData);
         mutateProducts();
@@ -455,9 +471,12 @@ export default function AdminProducts() {
     const subIds = (product.subcategories || []).map((s: any) => s.id);
     setSelectedCategories(catIds);
     setSelectedSubcategories(subIds);
-
-    // Tags will be implemented later
-    setSelectedTags([]);
+ 
+    // Load existing tags into the dialog
+    const existingTagNames = (product.tags || []).map((t: any) => t.name);
+    const existingTagIds = (product.tags || []).map((t: any) => t.id);
+    setSelectedTags(existingTagNames);
+    setSelectedTagIds(existingTagIds);
 
     // New images to upload
     setProductImages([]);
