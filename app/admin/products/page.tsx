@@ -600,12 +600,12 @@ export default function AdminProducts() {
                     </div>
                     <div>
                       <Label htmlFor="slug">Slug</Label>
-                      <Input
-                        id="slug"
-                        value={formData.slug}
-                        onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                        placeholder="apple-macbook-pro"
-                      />
+                       <Input
+                         id="slug"
+                         value={formData.slug}
+                         disabled
+                         placeholder="auto-generated from name"
+                       />
                     </div>
                   </div>
 
