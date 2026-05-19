@@ -192,7 +192,13 @@ export default function AdminProducts() {
   };
 
   const removeTag = (tagToRemove: string) => {
-    setSelectedTags(selectedTags.filter(tag => tag !== tagToRemove));
+    const newSelectedTags = selectedTags.filter(tag => tag !== tagToRemove);
+    setSelectedTags(newSelectedTags);
+
+    // If user removed any tag, reset selectedTagIds so we rely on createTags result on save
+    if (newSelectedTags.length < selectedTags.length) {
+      setSelectedTagIds([]);
+    }
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -275,13 +281,15 @@ export default function AdminProducts() {
           }
         }
 
-        // Step 3: Determine tags to send on update
-        let tagIdsToSend: number[] = [];
-        if (selectedTagIds.length > 0) {
-          tagIdsToSend = selectedTagIds;
-        } else if (selectedTags.length > 0) {
+        // Step 3: Create tags from current selection (new tags first, removed tags excluded)
+        let finalTagIds: number[] = [];
+
+        if (selectedTags.length > 0) {
+          // Always create from current selectedTags.
+          // Backend handles deduplication automatically.
           const tagResponse = await createTags(selectedTags);
-          tagIdsToSend = (tagResponse as any)?.data?.map((t: any) => t.id) ?? [];
+          const createdTags = (tagResponse as any)?.data || [];
+          finalTagIds = createdTags.map((t: any) => t.id);
         }
 
         // Step 4: Update product data
@@ -306,8 +314,8 @@ export default function AdminProducts() {
           subcategory_ids: selectedSubcategories,
         };
 
-        if (tagIdsToSend.length > 0) {
-          updateData.tag_ids = tagIdsToSend;
+        if (finalTagIds.length > 0) {
+          updateData.tag_ids = finalTagIds;
         }
 
         await api.put(`/products/${editingProduct.id}`, updateData);
