@@ -32,19 +32,14 @@ if (axios) {
       if (token && !AuthUtils.isTokenExpired()) {
         config.headers.Authorization = `Bearer ${token}`;
       } else if (token && AuthUtils.isTokenExpired()) {
-        // Token is expired - don't log out for mutation requests to prevent session loss
-        const isMutationRequest = ['POST', 'PUT', 'DELETE'].includes(config.method?.toUpperCase());
-        if (!isMutationRequest) {
-          AuthUtils.logout();
-          if (typeof window !== 'undefined') {
-            window.location.href = '/admin/login';
-          }
-        }
-        // For mutation requests, still try to send the request even with expired token
-        // The server will reject it, but we won't log out
-        else if (token) {
+        // Token is expired - do not auto-redirect here (cookie-based auth in layout is authoritative).
+        // Only attach header for mutations if a real token exists; otherwise let cookies handle auth.
+        const isMutationRequest = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase());
+        if (isMutationRequest && token && token !== 'authenticated') {
           config.headers.Authorization = `Bearer ${token}`;
         }
+        // For reads with expired client token, do nothing (no forced logout/redirect).
+        // Real session expiry is handled by server 401 responses or admin layout checks.
       }
 
       return config;
@@ -60,8 +55,8 @@ if (axios) {
       return response;
     },
     (error: any) => {
-      // Don't log out on mutation request errors (POST, PUT, DELETE) to prevent session loss during API calls
-      const isMutationRequest = ['POST', 'PUT', 'DELETE'].includes(error.config?.method?.toUpperCase());
+      // Don't log out on mutation request errors (POST, PUT, DELETE, PATCH) to prevent session loss during API calls
+      const isMutationRequest = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(error.config?.method?.toUpperCase());
 
       if (error.response?.status === 401 && !isMutationRequest) {
         // Unauthorized - clear auth data and redirect to login (only for non-mutation requests)

@@ -65,6 +65,9 @@ export class AuthUtils {
     const token = this.getToken();
     if (!token) return true;
 
+    // Special placeholder token set by admin login (real auth uses httpOnly cookie)
+    if (token === 'authenticated') return false;
+
     try {
       // Basic JWT expiration check (assuming JWT format)
       const payload = JSON.parse(atob(token.split('.')[1]));
