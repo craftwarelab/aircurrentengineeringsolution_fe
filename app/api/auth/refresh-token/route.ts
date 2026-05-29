@@ -4,32 +4,18 @@ const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/ap
 
 export async function POST(request: NextRequest) {
   try {
-    const accessToken = request.headers.get('authorization') || '';
     const cookieHeader = request.headers.get('cookie') || '';
 
-    const backendRes = await fetch(`${BACKEND_URL}/auth/logout`, {
+    const backendRes = await fetch(`${BACKEND_URL}/auth/refresh-token`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(accessToken && { Authorization: accessToken }),
         ...(cookieHeader && { Cookie: cookieHeader }),
       },
-      body: JSON.stringify({}),
     });
 
     const data = await backendRes.json();
-    const response = NextResponse.json(data, { status: backendRes.status });
-
-    // Clear the token cookie on this origin
-    response.cookies.set('token', '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-      secure: process.env.NODE_ENV === 'production',
-    });
-
-    return response;
+    return NextResponse.json(data, { status: backendRes.status });
   } catch {
     return NextResponse.json({ success: false, message: 'Internal server error' }, { status: 500 });
   }

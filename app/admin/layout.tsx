@@ -83,6 +83,7 @@ export default function AdminLayout({
   children: React.ReactNode;
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Dashboard', 'User Management']));
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const router = useRouter();
@@ -95,23 +96,22 @@ export default function AdminLayout({
       return;
     }
 
-    // Verify authentication with server
+    // Verify authentication: use in-memory token or try refresh
     const verifyAuth = async () => {
       try {
-        const response = await fetch('/api/auth');
-        const data = await response.json();
+        let token = AuthUtils.getAccessToken();
 
-        if (data.authenticated) {
+        if (!token || AuthUtils.isTokenExpired()) {
+          token = await AuthUtils.refreshAccessToken();
+        }
+
+        if (token) {
           setIsAuthenticated(true);
-          // Update local user data if available
-          if (data.user) {
-            AuthUtils.setUser(data.user);
-          }
+          setAuthChecked(true);
         } else {
           router.push('/admin/login');
         }
-      } catch (error) {
-        console.error('Auth verification failed:', error);
+      } catch {
         router.push('/admin/login');
       }
     };
@@ -134,21 +134,27 @@ export default function AdminLayout({
     return <>{children}</>;
   }
 
+  // Block render until auth check completes
+  if (!authChecked) {
+    return null;
+  }
+
   const handleLogout = async () => {
     try {
-      // Call logout API to clear server-side cookies
-      await fetch('/api/auth/logout', { method: 'POST' });
-    } catch (error) {
-      console.error('Logout API error:', error);
+      const token = AuthUtils.getAccessToken();
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          ...(token && { Authorization: `Bearer ${token}` }),
+        },
+      });
+    } catch {
+      // ignore
     }
 
-    // Clear client-side auth data
-    import('@/lib/auth').then(({ AuthUtils }) => {
-      AuthUtils.logout();
-      // Notify other components about auth state change
-      window.dispatchEvent(new CustomEvent('authChange'));
-    });
-
+    AuthUtils.logout();
+    window.dispatchEvent(new CustomEvent('authChange'));
     router.push('/admin/login');
   };
 

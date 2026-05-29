@@ -1,4 +1,3 @@
-// Dynamic import to handle missing axios package
 let axios: any = null;
 
 try {
@@ -9,7 +8,18 @@ try {
 
 import { AuthUtils } from './auth';
 
-// Create axios instance with default config
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+function subscribeTokenRefresh(cb: (token: string) => void) {
+  refreshSubscribers.push(cb);
+}
+
+function onRefreshed(token: string) {
+  refreshSubscribers.forEach(cb => cb(token));
+  refreshSubscribers = [];
+}
+
 let api: any = null;
 
 if (axios) {
@@ -23,59 +33,51 @@ if (axios) {
     },
   });
 
-  // Request interceptor for auth headers
   api.interceptors.request.use(
     (config: any) => {
-      // Get token using AuthUtils
-      const token = AuthUtils.getToken();
-
-      if (token && !AuthUtils.isTokenExpired()) {
+      const token = AuthUtils.getAccessToken();
+      if (token) {
         config.headers.Authorization = `Bearer ${token}`;
-      } else if (token && AuthUtils.isTokenExpired()) {
-        // Token is expired - do not auto-redirect here (cookie-based auth in layout is authoritative).
-        // Only attach header for mutations if a real token exists; otherwise let cookies handle auth.
-        const isMutationRequest = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(config.method?.toUpperCase());
-        if (isMutationRequest && token && token !== 'authenticated') {
-          config.headers.Authorization = `Bearer ${token}`;
-        }
-        // For reads with expired client token, do nothing (no forced logout/redirect).
-        // Real session expiry is handled by server 401 responses or admin layout checks.
       }
-
       return config;
     },
-    (error: any) => {
-      return Promise.reject(error);
-    }
+    (error: any) => Promise.reject(error)
   );
 
-  // Response interceptor for unauthorized handling
   api.interceptors.response.use(
-    (response: any) => {
-      return response;
-    },
-    (error: any) => {
-      // Don't log out on mutation request errors (POST, PUT, DELETE, PATCH) to prevent session loss during API calls
-      const isMutationRequest = ['POST', 'PUT', 'DELETE', 'PATCH'].includes(error.config?.method?.toUpperCase());
+    (response: any) => response,
+    async (error: any) => {
+      const originalRequest = error.config;
 
-      if (error.response?.status === 401 && !isMutationRequest) {
-        // Unauthorized - clear auth data and redirect to login (only for non-mutation requests)
+      if (error.response?.status === 401 && !originalRequest._retry) {
+        if (isRefreshing) {
+          return new Promise((resolve, reject) => {
+            subscribeTokenRefresh((token: string) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              resolve(api(originalRequest));
+            });
+          });
+        }
+
+        originalRequest._retry = true;
+        isRefreshing = true;
+
+        const newToken = await AuthUtils.refreshAccessToken();
+        isRefreshing = false;
+
+        if (newToken) {
+          onRefreshed(newToken);
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return api(originalRequest);
+        }
+
+        // Refresh failed — logout and redirect
         AuthUtils.logout();
         if (typeof window !== 'undefined') {
           window.location.href = '/admin/login';
         }
       }
 
-      // Handle token refresh if needed (optional)
-      if (error.response?.status === 403 && error.response.data?.message === 'Token expired' && !isMutationRequest) {
-        // Could implement token refresh logic here
-        AuthUtils.logout();
-        if (typeof window !== 'undefined') {
-          window.location.href = '/admin/login';
-        }
-      }
-
-      // Handle other error statuses
       if (error.response?.status >= 500) {
         console.error('Server error:', error.response.data);
       }
@@ -84,7 +86,6 @@ if (axios) {
     }
   );
 } else {
-  // Fallback API object for when axios is not available
   api = {
     get: () => Promise.reject(new Error('Axios not installed')),
     post: () => Promise.reject(new Error('Axios not installed')),

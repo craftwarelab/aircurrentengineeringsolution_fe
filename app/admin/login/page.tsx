@@ -8,7 +8,6 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { AuthUtils } from '@/lib/auth';
-import { mockUsers } from '@/lib/mockDatabase';
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('');
@@ -27,28 +26,21 @@ export default function AdminLogin() {
     try {
       const response = await fetch('/api/auth', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email: email.trim(),
-          password,
-        }),
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: email.trim(), password }),
       });
 
       const data = await response.json();
 
       if (response.ok && data.success) {
-        // Set user data in localStorage for client-side use
-        AuthUtils.login('authenticated', data.user);
-        // Notify other components about auth state change
+        AuthUtils.login(data.data.access_token, data.data.user);
         window.dispatchEvent(new CustomEvent('authChange'));
         router.push('/admin');
       } else {
-        setError(data.error || 'Login failed');
+        setError(data.message || 'Login failed');
       }
-    } catch (error) {
-      console.error('Login error:', error);
+    } catch {
       setError('An error occurred during login');
     }
   };

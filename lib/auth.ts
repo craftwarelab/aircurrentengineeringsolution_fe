@@ -1,81 +1,84 @@
-// Auth utility functions for managing tokens and user session
+// In-memory access token storage (RAM only, not persisted)
+let accessToken: string | null = null;
+
 export class AuthUtils {
-  private static readonly TOKEN_KEY = 'auth_token';
   private static readonly USER_KEY = 'user_data';
 
-  // Token management
-  static getToken(): string | null {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem(this.TOKEN_KEY);
+  static getAccessToken(): string | null {
+    return accessToken;
   }
 
-  static setToken(token: string): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(this.TOKEN_KEY, token);
+  static setAccessToken(token: string): void {
+    accessToken = token;
   }
 
-  static removeToken(): void {
-    if (typeof window === 'undefined') return;
-    localStorage.removeItem(this.TOKEN_KEY);
+  static clearAccessToken(): void {
+    accessToken = null;
   }
 
-  // User data management
   static getUser(): any | null {
     if (typeof window === 'undefined') return null;
-    const userData = localStorage.getItem(this.USER_KEY);
+    const userData = sessionStorage.getItem(this.USER_KEY);
     return userData ? JSON.parse(userData) : null;
   }
 
   static setUser(user: any): void {
     if (typeof window === 'undefined') return;
-    localStorage.setItem(this.USER_KEY, JSON.stringify(user));
+    sessionStorage.setItem(this.USER_KEY, JSON.stringify(user));
   }
 
   static removeUser(): void {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem(this.USER_KEY);
+    sessionStorage.removeItem(this.USER_KEY);
   }
 
-  // Session management
   static isAuthenticated(): boolean {
-    return !!this.getToken();
+    return !!accessToken;
   }
 
   static login(token: string, user: any): void {
-    this.setToken(token);
+    this.setAccessToken(token);
     this.setUser(user);
   }
 
   static logout(): void {
-    this.removeToken();
+    this.clearAccessToken();
     this.removeUser();
   }
 
-  // Update current user data
   static updateUser(userData: any): void {
     const currentUser = this.getUser();
     if (currentUser) {
-      const updatedUser = { ...currentUser, ...userData };
-      this.setUser(updatedUser);
+      this.setUser({ ...currentUser, ...userData });
     }
   }
 
-  // Check if token is expired (basic implementation)
   static isTokenExpired(): boolean {
-    const token = this.getToken();
-    if (!token) return true;
-
-    // Special placeholder token set by admin login (real auth uses httpOnly cookie)
-    if (token === 'authenticated') return false;
-
+    if (!accessToken) return true;
     try {
-      // Basic JWT expiration check (assuming JWT format)
-      const payload = JSON.parse(atob(token.split('.')[1]));
-      const currentTime = Date.now() / 1000;
-      return payload.exp < currentTime;
+      const payload = JSON.parse(atob(accessToken.split('.')[1]));
+      return payload.exp < Date.now() / 1000;
     } catch {
-      // If token parsing fails, consider it expired
       return true;
+    }
+  }
+
+  // Attempt to refresh the access token using the refresh token cookie
+  static async refreshAccessToken(): Promise<string | null> {
+    try {
+      const response = await fetch('/api/auth/refresh-token', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!response.ok) return null;
+      const data = await response.json();
+      if (data.success && data.data?.access_token) {
+        this.setAccessToken(data.data.access_token);
+        return data.data.access_token;
+      }
+      return null;
+    } catch {
+      return null;
     }
   }
 }
