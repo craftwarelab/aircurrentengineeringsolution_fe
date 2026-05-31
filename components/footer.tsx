@@ -109,13 +109,13 @@ export default function Footer() {
               reserved.
             </p>
             <div className="flex space-x-6 mt-4 md:mt-0">
-              <Link href="#" className="hover:text-accent transition-colors">
+              <Link href="/privacy-policy" className="hover:text-accent transition-colors">
                 Privacy Policy
               </Link>
-              <Link href="#" className="hover:text-accent transition-colors">
+              <Link href="/terms-of-service" className="hover:text-accent transition-colors">
                 Terms of Service
               </Link>
-              <Link href="#" className="hover:text-accent transition-colors">
+              <Link href="/sitemap" className="hover:text-accent transition-colors">
                 Sitemap
               </Link>
             </div>
