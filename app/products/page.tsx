@@ -56,6 +56,7 @@ export default function ProductsPage() {
   // Product Dialog State
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [dialogImageLoading, setDialogImageLoading] = useState(true);
 
   const filteredProducts = useMemo(() => {
     let result = [...allProducts];
@@ -318,13 +319,12 @@ export default function ProductsPage() {
                   return (
                      <div
                        key={product.id}
-                       onClick={() => {
-                         setSelectedProduct(product);
-                         setSelectedImageIndex(0);
-                       }}
-                       className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03] cursor-pointer"
+                       className="group bg-card border border-border rounded-xl overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col hover:scale-[1.03]"
                      >
-                        <div className="h-56 bg-muted relative overflow-hidden">
+                        <div
+                          className="h-56 bg-muted relative overflow-hidden cursor-pointer"
+                          onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); setDialogImageLoading(true); }}
+                        >
                           {product.images && product.images.length > 0 ? (
                             <div className="relative w-full h-full">
                               {/* Industry Standard Skeleton Loader */}
@@ -360,9 +360,12 @@ export default function ProductsPage() {
                          )}
                        </div>
 
-                      <div className="p-6 flex flex-col flex-1">
+                      <div
+                        className="p-6 flex flex-col flex-1 cursor-pointer"
+                        onClick={() => { setSelectedProduct(product); setSelectedImageIndex(0); setDialogImageLoading(true); }}
+                      >
                         <div className="flex items-start justify-between mb-2">
-                           <h3 className="font-semibold text-xl text-foreground group-hover:text-accent transition-colors line-clamp-2">
+                          <h3 className="font-semibold text-xl text-foreground group-hover:text-accent transition-colors line-clamp-2">
                             {product.name}
                           </h3>
                         </div>
@@ -388,9 +391,11 @@ export default function ProductsPage() {
                             <p className="text-xs text-muted-foreground">Starting price • Contact for quote</p>
                           </div>
                         )}
+                      </div>
 
-                        <Button asChild className="w-full mt-auto bg-accent hover:bg-accent/90 text-accent-foreground">
-                          <Link href={`/contact?product=${encodeURIComponent(product.name)}`}>View Product</Link>
+                      <div className="px-6 pb-6">
+                        <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                          <Link href={product.slug ? `/products/${product.slug}` : `/contact?product=${encodeURIComponent(product.name)}`}>View Product</Link>
                         </Button>
                       </div>
                     </div>
@@ -436,10 +441,11 @@ export default function ProductsPage() {
               <div className="flex-1 flex items-center justify-center bg-white rounded-xl border mb-4 overflow-hidden relative">
                 {selectedProduct.images && selectedProduct.images.length > 0 ? (
                    <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                      {/* Industry Standard Skeleton Loader */}
-                      <div id={`dialog-loader-${selectedImageIndex}`} className="shimmer-loader absolute inset-0 bg-gray-100 rounded-xl overflow-hidden z-10">
-                        <div className="absolute inset-0 bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100 animate-[shimmer_2s_infinite]" />
-                      </div>
+                      {dialogImageLoading && (
+                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
+                          <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-accent animate-spin" />
+                        </div>
+                      )}
                       <Zoom key={selectedImageIndex}>
                         <img
                           src={getCloudinaryImageUrl(
@@ -448,10 +454,7 @@ export default function ProductsPage() {
                           )}
                           alt={selectedProduct.name}
                           className="relative max-h-full max-w-full object-contain transition-transform duration-200"
-                          onLoad={() => {
-                            const loader = document.getElementById(`dialog-loader-${selectedImageIndex}`);
-                            if (loader) loader.style.display = 'none';
-                          }}
+                          onLoad={() => setDialogImageLoading(false)}
                         />
                       </Zoom>
                    </div>
@@ -469,7 +472,7 @@ export default function ProductsPage() {
                   {selectedProduct.images.map((img: any, index: number) => (
                     <button
                       key={index}
-                      onClick={() => setSelectedImageIndex(index)}
+                      onClick={() => { setSelectedImageIndex(index); setDialogImageLoading(true); }}
                       className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
                         selectedImageIndex === index ? 'border-accent' : 'border-gray-200'
                       }`}
@@ -515,7 +518,7 @@ export default function ProductsPage() {
               <div className="mb-8">
                 <h3 className="font-semibold text-lg mb-3">Product Description</h3>
                 <p className="text-gray-600 leading-relaxed">
-                  {selectedProduct.description}
+                  {selectedProduct.short_description || selectedProduct.description}
                 </p>
               </div>
 
@@ -539,7 +542,7 @@ export default function ProductsPage() {
                {/* Actions */}
                  <div className="pt-4 border-t mt-auto">
                   <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                    <Link href={`/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
+                    <Link href={selectedProduct.slug ? `/products/${selectedProduct.slug}` : `/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
                       View Product
                     </Link>
                   </Button>

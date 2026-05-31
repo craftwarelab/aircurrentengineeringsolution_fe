@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
   LayoutDashboard,
-  Users,
   Package,
   Briefcase,
   MessageSquare,
@@ -28,12 +27,6 @@ const navSections = [
     title: 'Dashboard',
     items: [
       { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-    ]
-  },
-  {
-    title: 'User Management',
-    items: [
-      { href: '/admin/users', label: 'Users', icon: Users },
     ]
   },
   {
@@ -84,7 +77,7 @@ export default function AdminLayout({
 }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
-  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Dashboard', 'User Management']));
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Dashboard']));
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
