@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Mail, Phone, MapPin } from "lucide-react";
+import FooterServices from "@/components/footer-services";
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
@@ -72,40 +73,7 @@ export default function Footer() {
           {/* Services */}
           <div>
             <h3 className="font-semibold text-base mb-4">Services</h3>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  href="/services"
-                  className="hover:text-accent transition-colors"
-                >
-                  HVAC Design
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/services"
-                  className="hover:text-accent transition-colors"
-                >
-                  Installation
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/services"
-                  className="hover:text-accent transition-colors"
-                >
-                  Maintenance
-                </Link>
-              </li>
-              <li>
-                <Link
-                  href="/services"
-                  className="hover:text-accent transition-colors"
-                >
-                  Energy Audits
-                </Link>
-              </li>
-            </ul>
+            <FooterServices />
           </div>
 
           {/* Contact Info */}

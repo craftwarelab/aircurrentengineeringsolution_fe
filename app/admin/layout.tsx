@@ -89,6 +89,9 @@ export default function AdminLayout({
       return;
     }
 
+    // If already verified in this session, skip re-checking
+    if (authChecked) return;
+
     // Verify authentication: use in-memory token or try refresh
     const verifyAuth = async () => {
       try {
@@ -110,7 +113,6 @@ export default function AdminLayout({
     };
 
     verifyAuth();
-
     // Auto-expand section containing current page (only if user hasn't manually interacted)
     if (!hasUserInteracted) {
       const currentSection = navSections.find(section =>
@@ -120,7 +122,7 @@ export default function AdminLayout({
         setExpandedSections(prev => new Set([...prev, currentSection.title]));
       }
     }
-  }, [pathname, hasUserInteracted, router]);
+  }, [pathname, authChecked, hasUserInteracted, router]);
 
   // For login page, render without admin layout
   if (pathname === '/admin/login') {
