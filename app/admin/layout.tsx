@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { AuthUtils } from '@/lib/auth';
+import { useAuth } from '@/components/providers/auth-provider';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import {
@@ -15,7 +16,6 @@ import {
   Building,
   Star,
   HelpCircle,
-  FileText,
   LogOut,
   ChevronDown,
   ChevronRight,
@@ -75,45 +75,35 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Dashboard']));
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
+  const { isAuthenticated, restoring, refresh } = useAuth();
 
   useEffect(() => {
-    // Skip authentication check for login page
-    if (pathname === '/admin/login') {
-      setIsAuthenticated(true);
-      return;
-    }
-
-    // If already verified in this session, skip re-checking
+    if (pathname === '/admin/login') return;
     if (authChecked) return;
 
-    // Verify authentication: use in-memory token or try refresh
     const verifyAuth = async () => {
-      try {
-        let token = AuthUtils.getAccessToken();
+      // Wait for the global auth restore to finish first
+      if (restoring) return;
 
-        if (!token || AuthUtils.isTokenExpired()) {
-          token = await AuthUtils.refreshAccessToken();
-        }
+      let ok = isAuthenticated;
+      if (!ok) {
+        ok = await refresh();
+      }
 
-        if (token) {
-          setIsAuthenticated(true);
-          setAuthChecked(true);
-        } else {
-          router.push('/admin/login');
-        }
-      } catch {
+      if (ok) {
+        setAuthChecked(true);
+      } else {
         router.push('/admin/login');
       }
     };
 
     verifyAuth();
-    // Auto-expand section containing current page (only if user hasn't manually interacted)
+
     if (!hasUserInteracted) {
       const currentSection = navSections.find(section =>
         section.items.some(item => item.href === pathname)
@@ -122,15 +112,15 @@ export default function AdminLayout({
         setExpandedSections(prev => new Set([...prev, currentSection.title]));
       }
     }
-  }, [pathname, authChecked, hasUserInteracted, router]);
+  }, [pathname, authChecked, hasUserInteracted, router, isAuthenticated, restoring, refresh]);
 
   // For login page, render without admin layout
   if (pathname === '/admin/login') {
     return <>{children}</>;
   }
 
-  // Block render until auth check completes
-  if (!authChecked) {
+  // While global auth is restoring or local check pending, show nothing (blur overlay handles UI)
+  if (restoring || !authChecked) {
     return null;
   }
 

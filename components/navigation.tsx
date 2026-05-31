@@ -1,41 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { AuthUtils } from "@/lib/auth";
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    // Check authentication status on component mount and when localStorage changes
-    const checkAuth = () => {
-      setIsAuthenticated(AuthUtils.isAuthenticated());
-    };
-
-    checkAuth();
-
-    // Listen for storage changes (login/logout from other tabs)
-    const handleStorageChange = () => {
-      checkAuth();
-    };
-
-    // Listen for custom auth change events (for same-tab login/logout)
-    const handleAuthChange = () => {
-      checkAuth();
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('authChange', handleAuthChange);
-
-    return () => {
-      window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('authChange', handleAuthChange);
-    };
-  }, []);
+  const { isAuthenticated } = useAuth();
 
   const navLinks = [
     { href: "/", label: "Home" },

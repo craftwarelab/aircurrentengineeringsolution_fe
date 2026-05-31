@@ -20,14 +20,17 @@ export async function POST(request: NextRequest) {
     const data = await backendRes.json();
     const response = NextResponse.json(data, { status: backendRes.status });
 
-    // Clear the token cookie on this origin
-    response.cookies.set('token', '', {
-      httpOnly: true,
-      sameSite: 'lax',
-      path: '/',
-      maxAge: 0,
-      secure: process.env.NODE_ENV === 'production',
-    });
+    // Forward the backend's Set-Cookie that expires the token cookie
+    const setCookie = backendRes.headers.get('set-cookie');
+    if (setCookie) {
+      response.headers.set('set-cookie', setCookie);
+    } else {
+      // Fallback: manually expire the cookie on this origin
+      response.headers.set(
+        'set-cookie',
+        'token=; Path=/; Expires=Thu, 01 Jan 1970 00:00:00 GMT; HttpOnly; SameSite=Lax'
+      );
+    }
 
     return response;
   } catch {

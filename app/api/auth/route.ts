@@ -15,26 +15,12 @@ export async function POST(request: NextRequest) {
     const data = await backendRes.json();
     const response = NextResponse.json(data, { status: backendRes.status });
 
-    // Forward the refresh token cookie to the browser
-    // The backend sets: token=<value>; HttpOnly; SameSite=Lax
-    // We rewrite it so it is scoped to this Next.js origin
+    // Forward the raw Set-Cookie header exactly as the backend sent it.
+    // Do NOT parse or rewrite — the cookie value starts with s%3A (signed by Express
+    // cookie-parser) and must be forwarded verbatim or the backend will reject it.
     const setCookie = backendRes.headers.get('set-cookie');
     if (setCookie) {
-      // Extract just the token value from the Set-Cookie string
-      const tokenMatch = setCookie.match(/token=([^;]+)/);
-      if (tokenMatch) {
-        response.cookies.set('token', tokenMatch[1], {
-          httpOnly: true,
-          sameSite: 'lax',
-          path: '/',
-          // Preserve Max-Age from backend if present
-          maxAge: (() => {
-            const maxAgeMatch = setCookie.match(/Max-Age=(\d+)/i);
-            return maxAgeMatch ? parseInt(maxAgeMatch[1]) : 60 * 60 * 24 * 7;
-          })(),
-          secure: process.env.NODE_ENV === 'production',
-        });
-      }
+      response.headers.set('set-cookie', setCookie);
     }
 
     return response;
