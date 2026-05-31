@@ -1,17 +1,10 @@
-import HeroSection from '@/components/hero-section';
-import ContactForm from '@/components/contact-form';
+'use client';
+
 import { Phone, Mail, MapPin, Clock } from 'lucide-react';
 
 export default function Contact() {
   return (
     <>
-      {/* Hero Section */}
-      <HeroSection
-        title="Get in Touch"
-        subtitle="Contact Us"
-        description="Ready to discuss your HVAC and ventilation needs? Our team is here to help. Contact us today for a free consultation."
-      />
-
       {/* Main Contact Section */}
       <section className="bg-background py-16">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -68,73 +61,26 @@ export default function Contact() {
               </div>
             </div>
 
-            {/* Contact Form */}
+            {/* Google Maps Location */}
             <div className="lg:col-span-2">
-              <div className="bg-card rounded-lg border border-border p-8">
-                <h2 className="text-2xl font-bold text-foreground mb-2">Send us a Message</h2>
-                <p className="text-muted-foreground mb-8">
-                  Fill out the form below and we&apos;ll get back to you as soon as possible.
-                </p>
-                <ContactForm />
+              <div className="bg-card rounded-lg border border-border overflow-hidden h-full">
+                <div className="p-6 border-b border-border">
+                  <h2 className="text-2xl font-bold text-foreground mb-1">Visit Our Office</h2>
+                  <p className="text-muted-foreground">Colombo 7, Sri Lanka</p>
+                </div>
+                <div className="relative w-full h-[450px]">
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3960.866!2d79.861!3d6.927!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3ae2593f3f3f3f3f%3A0x3f3f3f3f3f3f3f3f!2sColombo%207!5e0!3m2!1sen!2slk!4v1710000000000"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    className="absolute inset-0"
+                  />
+                </div>
               </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-foreground mb-12">Frequently Asked Questions</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">How long does a typical HVAC project take?</h3>
-              <p className="text-muted-foreground text-sm">
-                Timeline varies based on project scope. A design assessment takes 1-2 weeks, installation 
-                typically ranges from 2-8 weeks depending on complexity. We&apos;ll provide a detailed 
-                schedule during the consultation phase.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Do you offer maintenance contracts?</h3>
-              <p className="text-muted-foreground text-sm">
-                Yes. We offer flexible preventive maintenance programs customized to your facility. These 
-                help extend equipment life, reduce emergency repairs, and maintain warranty coverage.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">What if my system breaks down?</h3>
-              <p className="text-muted-foreground text-sm">
-                We provide 24/7 emergency service. Call our emergency line and a technician will be 
-                dispatched promptly to get your system back online as quickly as possible.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Can you help with energy efficiency upgrades?</h3>
-              <p className="text-muted-foreground text-sm">
-                Absolutely. We conduct comprehensive energy audits and recommend upgrades that reduce 
-                operating costs. Many clients see 25-35% energy savings after our optimizations.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">Do you work on existing systems?</h3>
-              <p className="text-muted-foreground text-sm">
-                Yes, we retrofit, upgrade, and repair existing systems. Even older equipment can often be 
-                optimized for better performance and efficiency.
-              </p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <h3 className="text-lg font-semibold text-foreground mb-3">What warranties do you provide?</h3>
-              <p className="text-muted-foreground text-sm">
-                We offer manufacturer warranties on equipment plus our own workmanship warranties. Details 
-                depend on the project scope and will be discussed during your consultation.
-              </p>
             </div>
           </div>
         </div>
@@ -169,41 +115,6 @@ export default function Contact() {
         </div>
       </section>
 
-      {/* Testimonials */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-3xl font-bold text-foreground mb-12">What Our Clients Say</h2>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-card border border-border rounded-lg p-8">
-              <p className="text-muted-foreground mb-4">
-                &quot;Air Current Eng. Solutions designed and installed our HVAC system perfectly. Their expertise and attention 
-                to detail resulted in a system that exceeds our expectations. Highly recommended.&quot;
-              </p>
-              <p className="font-semibold text-foreground">Sarah Johnson</p>
-              <p className="text-sm text-muted-foreground">Facilities Director, Modern Office Complex</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <p className="text-muted-foreground mb-4">
-                &quot;The energy savings from their optimization recommendations were immediate and significant. 
-                We&apos;ve reduced our HVAC operating costs by over 30% in the first year alone.&quot;
-              </p>
-              <p className="font-semibold text-foreground">Michael Chen</p>
-              <p className="text-sm text-muted-foreground">Operations Manager, Manufacturing Facility</p>
-            </div>
-
-            <div className="bg-card border border-border rounded-lg p-8">
-              <p className="text-muted-foreground mb-4">
-                &quot;Their 24/7 emergency service has been invaluable. When we had a critical system failure, 
-                they responded immediately and got us back up and running within hours.&quot;
-              </p>
-              <p className="font-semibold text-foreground">Dr. Patricia Williams</p>
-              <p className="text-sm text-muted-foreground">Facilities Manager, Metropolitan Hospital</p>
-            </div>
-          </div>
-        </div>
-      </section>
     </>
   );
 }

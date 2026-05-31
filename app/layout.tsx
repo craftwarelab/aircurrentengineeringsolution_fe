@@ -3,6 +3,10 @@ import { Geist, Geist_Mono } from 'next/font/google'
 // import { Analytics } from '@vercel/analytics/next'
 import Navigation from '@/components/navigation'
 import Footer from '@/components/footer'
+import { Toaster } from '@/components/ui/sonner'
+import { SWRProvider } from '@/components/providers/swr-provider'
+import { AuthProvider } from '@/components/providers/auth-provider'
+import AuthRestoreOverlay from '@/components/auth-restore-overlay'
 import './globals.css'
 
 const _geist = Geist({ subsets: ["latin"] });
@@ -47,11 +51,17 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="font-sans antialiased flex flex-col min-h-screen">
-        <Navigation />
-        <main className="flex-1">
-          {children}
-        </main>
-        <Footer />
+        <SWRProvider>
+          <AuthProvider>
+            <AuthRestoreOverlay />
+            <Navigation />
+            <main className="flex-1">
+              {children}
+            </main>
+            <Footer />
+            <Toaster />
+          </AuthProvider>
+        </SWRProvider>
         {/* {process.env.NODE_ENV === 'production' && <Analytics />} */}
       </body>
     </html>

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAuth } from '@/components/providers/auth-provider';
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAuthenticated } = useAuth();
 
   const navLinks = [
     { href: "/", label: "Home" },
@@ -44,12 +46,20 @@ export default function Navigation() {
                   {link.label}
                 </Link>
               ))}
+              {isAuthenticated && (
+                <Link
+                  href="/admin"
+                  className="px-3 py-2 text-sm font-medium text-foreground hover:text-primary hover:bg-secondary transition-colors rounded-md"
+                >
+                  Dashboard
+                </Link>
+              )}
             </div>
             <Button
               asChild
               className="bg-accent hover:bg-accent/90 text-accent-foreground"
             >
-              <Link href="/contact">Get Quote</Link>
+              <Link href="/inquiries">Get Quote</Link>
             </Button>
           </div>
 
@@ -78,6 +88,15 @@ export default function Navigation() {
                 {link.label}
               </Link>
             ))}
+            {isAuthenticated && (
+              <Link
+                href="/admin"
+                className="block px-3 py-2 rounded-md text-base font-medium text-foreground hover:text-primary hover:bg-secondary transition-colors"
+                onClick={() => setIsOpen(false)}
+              >
+                Admin Dashboard
+              </Link>
+            )}
             <div className="px-3 py-2">
               <Button
                 asChild

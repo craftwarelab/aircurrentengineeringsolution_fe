@@ -3,6 +3,8 @@ import { ArrowRight, Zap, Shield, Users, TrendingUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import HeroSection from '@/components/hero-section';
 import FeatureCard from '@/components/feature-card';
+import TestimonialsSection from '@/components/testimonials-section';
+import FAQSection from '@/components/faq-section';
 import { getServices, getProducts, getProjects } from '@/lib/mockDatabase';
 
 export default function Home() {
@@ -47,7 +49,7 @@ export default function Home() {
         subtitle="Engineering Excellence"
         description="Air Current Engineering delivers cutting-edge HVAC and ventilation systems tailored to your facility's unique needs. From design through installation and maintenance, we ensure optimal comfort and efficiency."
         ctaText="Request a Consultation"
-        ctaHref="/contact"
+        ctaHref="/inquiries"
         secondaryCtaText="View Our Services"
         secondaryCtaHref="/services"
         variant="home"
@@ -180,6 +182,12 @@ export default function Home() {
           </div>
         </div>
       </section>
+
+      {/* Testimonials Section */}
+      <TestimonialsSection />
+
+      {/* FAQ Section */}
+      <FAQSection />
 
       {/* CTA Section */}
       <section className="bg-primary text-primary-foreground py-16">
