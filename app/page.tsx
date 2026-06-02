@@ -1,208 +1,490 @@
+'use client';
+
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { ArrowRight, Zap, Shield, Users, TrendingUp } from 'lucide-react';
+import Image from 'next/image';
+import { ArrowRight, ChevronLeft, ChevronRight, Shield, Users, Award, MapPin, Phone, Mail, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import HeroSection from '@/components/hero-section';
-import FeatureCard from '@/components/feature-card';
+import { Badge } from '@/components/ui/badge';
 import TestimonialsSection from '@/components/testimonials-section';
 import FAQSection from '@/components/faq-section';
-import { getServices, getProducts, getProjects } from '@/lib/mockDatabase';
+import { useServices } from '@/lib/hooks/use-services';
+import { useProjects } from '@/lib/hooks/use-projects';
 
-export default function Home() {
-  const services = getServices().slice(0, 4);
-  const projects = getProjects().slice(0, 3);
+// ─── Hero Slider ──────────────────────────────────────────────────────────────
+const SLIDES = [
+  {
+    headline: 'Professional HVAC & Ventilation Solutions',
+    sub: 'Precision-engineered air systems for commercial & industrial facilities across Sri Lanka.',
+    cta: { label: 'Request a Quote', href: '/inquiries' },
+    bg: 'from-primary/95 via-primary/80 to-primary/60',
+  },
+  {
+    headline: 'Design. Install. Maintain.',
+    sub: 'End-to-end engineering services — from concept design through commissioning and long-term support.',
+    cta: { label: 'View Our Services', href: '/services' },
+    bg: 'from-primary via-primary/85 to-accent/40',
+  },
+  {
+    headline: 'Energy Efficiency First',
+    sub: 'Our systems cut energy consumption by up to 35%, saving you money while reducing your carbon footprint.',
+    cta: { label: 'Explore Projects', href: '/projects' },
+    bg: 'from-primary/90 via-primary/70 to-primary/50',
+  },
+];
 
-  const stats = [
-    { value: '500+', label: 'Projects Completed' },
-    { value: '98%', label: 'Client Satisfaction' },
-    { value: '20+', label: 'Years Experience' },
-    { value: '150+', label: 'Team Members' },
-  ];
+function HeroSlider() {
+  const [active, setActive] = useState(0);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const benefits = [
-    {
-      icon: Zap,
-      title: 'Energy Efficient',
-      description: 'Reduce energy consumption by up to 35% with our optimized HVAC solutions.',
-    },
-    {
-      icon: Shield,
-      title: 'Reliable Systems',
-      description: 'Built to withstand demanding conditions with industry-leading warranty coverage.',
-    },
-    {
-      icon: Users,
-      title: 'Expert Team',
-      description: 'Certified engineers with decades of combined experience in HVAC design.',
-    },
-    {
-      icon: TrendingUp,
-      title: 'Future Ready',
-      description: 'Smart controls and IoT integration for maximum system optimization.',
-    },
-  ];
+  const start = () => {
+    timer.current = setInterval(() => setActive((p) => (p + 1) % SLIDES.length), 5000);
+  };
+  const stop = () => { if (timer.current) clearInterval(timer.current); };
+
+  useEffect(() => { start(); return stop; }, []);
+
+  const go = (dir: 1 | -1) => {
+    stop();
+    setActive((p) => (p + dir + SLIDES.length) % SLIDES.length);
+    start();
+  };
 
   return (
-    <>
-      {/* Hero Section */}
-      <HeroSection
-        title="Professional HVAC & Ventilation Solutions"
-        subtitle="Engineering Excellence"
-        description="Air Current Engineering delivers cutting-edge HVAC and ventilation systems tailored to your facility's unique needs. From design through installation and maintenance, we ensure optimal comfort and efficiency."
-        ctaText="Request a Consultation"
-        ctaHref="/inquiries"
-        secondaryCtaText="View Our Services"
-        secondaryCtaHref="/services"
-        variant="home"
-      />
+    <section className="relative w-full overflow-hidden" style={{ aspectRatio: '1920/620' }}>
+      {/* Slides */}
+      {SLIDES.map((slide, i) => (
+        <div
+          key={i}
+          className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-r ${slide.bg} ${i === active ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+        >
+          {/* decorative circles */}
+          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/10 rounded-full -mr-48 -mt-48 pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-white/5 rounded-full -ml-32 -mb-32 pointer-events-none" />
 
-      {/* Key Metrics Section */}
-      <section className="bg-background py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-            {stats.map((stat) => (
-              <div key={stat.value} className="text-center">
-                <p className="text-4xl font-bold text-primary mb-2">{stat.value}</p>
-                <p className="text-foreground/70 font-medium">{stat.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-4 text-balance">
-              Why Choose Us?
-            </h2>
-            <p className="text-lg text-muted-foreground max-w-2xl">
-              We combine technical expertise with customer-focused service to deliver solutions that exceed expectations.
-            </p>
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {benefits.map((benefit) => {
-              const Icon = benefit.icon;
-              return (
-                <div
-                  key={benefit.title}
-                  className="bg-card rounded-lg p-6 border border-border hover:shadow-lg transition-shadow"
-                >
-                  <Icon className="w-12 h-12 text-accent mb-4" />
-                  <h3 className="text-lg font-semibold text-foreground mb-2">
-                    {benefit.title}
-                  </h3>
-                  <p className="text-muted-foreground text-sm">{benefit.description}</p>
+          <div className="relative z-10 h-full flex items-center">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
+              <div className="max-w-2xl">
+                <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-4">
+                  Air Current Engineering Solutions
+                </p>
+                <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold text-white tracking-tight mb-6 leading-tight">
+                  {slide.headline}
+                </h1>
+                <p className="text-lg text-white/85 mb-8 leading-relaxed">{slide.sub}</p>
+                <div className="flex gap-4">
+                  <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground font-semibold">
+                    <Link href={slide.cta.href}>{slide.cta.label}</Link>
+                  </Button>
+                  <Button asChild size="lg" variant="outline" className="border-white text-white bg-white/10 hover:bg-white/20">
+                    <Link href="/about">About Us</Link>
+                  </Button>
                 </div>
-              );
-            })}
+              </div>
+            </div>
           </div>
         </div>
-      </section>
+      ))}
 
-      {/* Featured Services Section */}
-      <section className="bg-background py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-3xl font-bold text-foreground mb-4 text-balance">
-                  Our Services
-                </h2>
-                <p className="text-lg text-muted-foreground max-w-2xl">
-                  Comprehensive HVAC solutions for every need.
-                </p>
+      {/* Arrows */}
+      <button onClick={() => go(-1)} className="absolute left-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors">
+        <ChevronLeft className="w-5 h-5" />
+      </button>
+      <button onClick={() => go(1)} className="absolute right-4 top-1/2 -translate-y-1/2 z-20 w-10 h-10 rounded-full bg-black/30 hover:bg-black/50 flex items-center justify-center text-white transition-colors">
+        <ChevronRight className="w-5 h-5" />
+      </button>
+
+      {/* Dots */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex gap-2">
+        {SLIDES.map((_, i) => (
+          <button
+            key={i}
+            onClick={() => { stop(); setActive(i); start(); }}
+            className={`w-2 h-2 rounded-full transition-all ${i === active ? 'bg-accent w-6' : 'bg-white/50'}`}
+          />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Stats Bar ────────────────────────────────────────────────────────────────
+const STATS = [
+  { value: '500+', label: 'Projects Completed' },
+  { value: '20+', label: 'Years Experience' },
+  { value: '98%', label: 'Client Satisfaction' },
+  { value: '150+', label: 'Team Members' },
+];
+
+// ─── Services Tabs ────────────────────────────────────────────────────────────
+function ServicesSection() {
+  const { data: raw } = useServices(1, 20, 'active');
+  const services: any[] = Array.isArray(raw) ? raw : ((raw as any)?.data?.data ?? []);
+  const [active, setActive] = useState(0);
+
+  if (!services.length) return null;
+
+  const current = services[active];
+  const mainImg = current?.images?.find((i: any) => i.is_main)?.url
+    || current?.images?.[0]?.url;
+  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
+
+  return (
+    <section className="bg-muted/40 py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        {/* Section title */}
+        <div className="text-center mb-10">
+          <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-2">What We Offer</p>
+          <h2 className="text-3xl font-bold text-foreground">Our Services</h2>
+        </div>
+
+        {/* Tab Nav */}
+        <div className="flex overflow-x-auto gap-1 mb-8 pb-1 scrollbar-hide border-b border-border">
+          {services.map((s: any, i: number) => (
+            <button
+              key={s.id}
+              onClick={() => setActive(i)}
+              className={`flex-shrink-0 px-5 py-3 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
+                i === active
+                  ? 'border-primary text-primary'
+                  : 'border-transparent text-muted-foreground hover:text-foreground'
+              }`}
+            >
+              {s.name}
+            </button>
+          ))}
+        </div>
+
+        {/* Active service content */}
+        <div className="grid md:grid-cols-2 gap-10 items-center">
+          {/* Image */}
+          <div className="rounded-2xl overflow-hidden bg-muted aspect-video relative">
+            {mainImg ? (
+              <Image
+                src={`${cloudinaryBase}${mainImg}`}
+                alt={current.name}
+                fill
+                className="object-cover"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/20 to-accent/10">
+                <span className="text-4xl font-bold text-primary/30">{current.name[0]}</span>
               </div>
-              <Button asChild variant="outline" className="hidden sm:inline-flex">
-                <Link href="/services">
-                  View All <ArrowRight className="ml-2" size={16} />
-                </Link>
+            )}
+          </div>
+
+          {/* Info */}
+          <div>
+            <h3 className="text-2xl font-bold text-foreground mb-3">{current.name}</h3>
+            {current.short_description && (
+              <p className="text-muted-foreground mb-4">{current.short_description}</p>
+            )}
+            {current.description && (
+              <p className="text-muted-foreground text-sm line-clamp-4 mb-6">{current.description}</p>
+            )}
+            <div className="flex gap-3">
+              <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Link href="/inquiries">Get a Quote <ArrowRight className="ml-2 w-4 h-4" /></Link>
+              </Button>
+              <Button asChild variant="outline">
+                <Link href="/services">All Services</Link>
               </Button>
             </div>
           </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {services.map((service) => (
-              <FeatureCard
-                key={service.id}
-                title={service.name}
-                description={service.description}
-                category={service.category}
-                details={service.details}
-              />
-            ))}
-          </div>
-
-          <div className="mt-8 sm:hidden">
-            <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="/services">View All Services</Link>
-            </Button>
-          </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* Featured Projects Section */}
-      <section className="bg-secondary/30 py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="mb-12">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h2 className="text-3xl font-bold text-foreground mb-4 text-balance">
-                  Recent Projects
-                </h2>
-                <p className="text-lg text-muted-foreground max-w-2xl">
-                  See what we have accomplished for our clients.
-                </p>
+// ─── About Section ────────────────────────────────────────────────────────────
+function AboutSection() {
+  return (
+    <section className="py-16 bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid lg:grid-cols-2 gap-12 items-center">
+          {/* Image side */}
+          <div className="relative">
+            <div className="rounded-2xl overflow-hidden aspect-[4/3] bg-gradient-to-br from-primary/20 to-accent/10 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="text-center text-primary/40">
+                  <div className="w-24 h-24 mx-auto mb-4 rounded-full border-4 border-primary/20 flex items-center justify-center">
+                    <span className="text-3xl font-black">ACE</span>
+                  </div>
+                  <p className="text-sm font-medium">Air Current Engineering</p>
+                </div>
               </div>
-              <Button asChild variant="outline" className="hidden sm:inline-flex">
-                <Link href="/projects">
-                  View All <ArrowRight className="ml-2" size={16} />
-                </Link>
-              </Button>
+            </div>
+            {/* Floating stat card */}
+            <div className="absolute -bottom-6 -right-6 bg-primary text-primary-foreground rounded-2xl p-6 shadow-xl">
+              <p className="text-4xl font-black">20+</p>
+              <p className="text-sm text-primary-foreground/80">Years of Excellence</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <FeatureCard
-                key={project.id}
-                title={project.title}
-                description={project.description}
-                industry={project.industry}
-                client={project.client}
-              />
-            ))}
-          </div>
+          {/* Text side */}
+          <div>
+            <div className="inline-block px-4 py-1.5 bg-primary/10 text-primary rounded-full text-xs font-semibold uppercase tracking-wider mb-5">
+              About Us
+            </div>
+            <h2 className="text-3xl font-bold text-foreground mb-4">
+              Sri Lanka's Trusted HVAC Engineering Partner
+            </h2>
+            <p className="text-muted-foreground mb-4">
+              Air Current Engineering Solutions is a leading HVAC and ventilation engineering company committed to delivering precision-engineered air systems. We serve commercial, industrial, and institutional clients across Sri Lanka with end-to-end solutions.
+            </p>
+            <p className="text-muted-foreground mb-8">
+              Our dedicated team of certified engineers combines German-standard design principles with deep local expertise to build systems that perform reliably for decades.
+            </p>
 
-          <div className="mt-8 sm:hidden">
-            <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-              <Link href="/projects">View All Projects</Link>
+            <div className="grid grid-cols-2 gap-4 mb-8">
+              {[
+                { n: '500+', l: 'Projects Completed' },
+                { n: '100+', l: 'Happy Clients' },
+                { n: '20+', l: 'Years Experience' },
+                { n: '150+', l: 'Team Members' },
+              ].map((s) => (
+                <div key={s.n} className="bg-muted/60 rounded-xl p-4">
+                  <p className="text-2xl font-bold text-primary">{s.n}</p>
+                  <p className="text-sm text-muted-foreground">{s.l}</p>
+                </div>
+              ))}
+            </div>
+
+            <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Link href="/about">Learn More <ArrowRight className="ml-2 w-4 h-4" /></Link>
             </Button>
           </div>
         </div>
-      </section>
+      </div>
+    </section>
+  );
+}
 
-      {/* Testimonials Section */}
-      <TestimonialsSection />
+// ─── Why Choose Us ────────────────────────────────────────────────────────────
+const WHY = [
+  {
+    icon: Award,
+    title: 'Certified Engineering Standards',
+    desc: 'All designs follow international ASHRAE and CIBSE standards with local compliance — ensuring systems built to last.',
+  },
+  {
+    icon: Users,
+    title: 'Dedicated Expert Team',
+    desc: 'Our certified mechanical engineers bring decades of combined experience in HVAC design, installation, and commissioning.',
+  },
+  {
+    icon: Shield,
+    title: 'Island-wide Coverage & Support',
+    desc: 'We serve clients across Sri Lanka with on-site assessments, rapid maintenance response, and after-sales warranty.',
+  },
+];
 
-      {/* FAQ Section */}
-      <FAQSection />
-
-      {/* CTA Section */}
-      <section className="bg-primary text-primary-foreground py-16">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl sm:text-4xl font-bold mb-6 text-balance">
-            Ready to Optimize Your HVAC System?
-          </h2>
-          <p className="text-lg text-primary-foreground/90 mb-8 max-w-2xl mx-auto">
-            Contact our engineering team today for a free consultation and discover how we can improve your facility&apos;s comfort and efficiency.
+function WhyChooseUsSection() {
+  return (
+    <section className="py-16 bg-muted/40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-12">
+          <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-2">Our Strengths</p>
+          <h2 className="text-3xl font-bold text-foreground mb-3">Why Choose Air Current?</h2>
+          <p className="text-muted-foreground max-w-xl mx-auto">
+            International engineering standards backed by Sri Lankan expertise and responsive local service.
           </p>
-          <Button asChild size="lg" className="bg-accent hover:bg-accent/90 text-accent-foreground">
-            <Link href="/contact">Get Your Free Consultation</Link>
+        </div>
+
+        <div className="grid md:grid-cols-3 gap-8">
+          {WHY.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div key={item.title} className="relative bg-card border border-border rounded-2xl p-8 hover:shadow-lg transition-shadow overflow-hidden group">
+                <div className="absolute top-0 left-0 w-1 h-full bg-primary rounded-l-2xl group-hover:w-2 transition-all" />
+                <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center mb-6">
+                  <Icon className="w-7 h-7 text-primary" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground mb-3">{item.title}</h3>
+                <p className="text-muted-foreground text-sm leading-relaxed">{item.desc}</p>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Projects Strip ───────────────────────────────────────────────────────────
+function ProjectsStrip() {
+  const { data: raw } = useProjects(1, 10, 'active');
+  const projects: any[] = Array.isArray(raw) ? raw : ((raw as any)?.data?.data ?? []);
+  const stripRef = useRef<HTMLDivElement>(null);
+  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
+
+  if (!projects.length) return null;
+
+  const scroll = (dir: 1 | -1) => {
+    if (stripRef.current) stripRef.current.scrollLeft += dir * 320;
+  };
+
+  return (
+    <section className="bg-primary py-14">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex items-center justify-between mb-8">
+          <div>
+            <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-1">Our Work</p>
+            <h2 className="text-3xl font-bold text-white">Featured Projects</h2>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={() => scroll(-1)} className="w-10 h-10 rounded-full border border-white/30 hover:bg-white/10 flex items-center justify-center text-white transition-colors">
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            <button onClick={() => scroll(1)} className="w-10 h-10 rounded-full border border-white/30 hover:bg-white/10 flex items-center justify-center text-white transition-colors">
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
+        </div>
+
+        <div
+          ref={stripRef}
+          className="flex gap-4 overflow-x-auto scroll-smooth pb-2"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {projects.map((p: any) => {
+            const img = p.images?.find((i: any) => i.is_main)?.url || p.images?.[0]?.url;
+            return (
+              <div key={p.id} className="flex-shrink-0 w-72 rounded-xl overflow-hidden bg-primary-foreground/5 border border-white/10 group">
+                <div className="relative h-44 bg-white/10">
+                  {img ? (
+                    <Image
+                      src={`${cloudinaryBase}${img}`}
+                      alt={p.title}
+                      fill
+                      className="object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <span className="text-white/20 text-5xl font-black">{p.title[0]}</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-4">
+                  <h4 className="text-white font-semibold text-sm line-clamp-2">{p.title}</h4>
+                  {p.tags?.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {p.tags.slice(0, 2).map((t: any) => (
+                        <Badge key={t.id} variant="outline" className="text-white/60 border-white/20 text-xs">{t.name}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 text-center">
+          <Button asChild variant="outline" className="border-white text-white hover:bg-white/10">
+            <Link href="/projects">View All Projects <ArrowRight className="ml-2 w-4 h-4" /></Link>
           </Button>
         </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── CTA Banner ───────────────────────────────────────────────────────────────
+function CTASection() {
+  return (
+    <section className="bg-accent py-16">
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <h2 className="text-3xl sm:text-4xl font-bold text-accent-foreground mb-4">
+          Ready to Optimize Your Air System?
+        </h2>
+        <p className="text-accent-foreground/80 mb-8 max-w-xl mx-auto">
+          Contact our engineering team today for a free consultation and discover how we can improve your facility's comfort and efficiency.
+        </p>
+        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
+            <Link href="/inquiries">Get a Free Quote</Link>
+          </Button>
+          <Button asChild size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/5">
+            <Link href="/contact">Contact Us</Link>
+          </Button>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+// ─── Floating Contact Bar ─────────────────────────────────────────────────────
+function FloatingContact() {
+  return (
+    <div className="fixed right-0 top-1/2 -translate-y-1/2 z-40 flex flex-col gap-1">
+      {[
+        { icon: Phone, label: 'Call', href: 'tel:+94701533195' },
+        { icon: Mail, label: 'Email', href: 'mailto:info@aircurrentengineeringsolution.com' },
+        { icon: MapPin, label: 'Map', href: '/contact' },
+      ].map((item) => {
+        const Icon = item.icon;
+        return (
+          <a
+            key={item.label}
+            href={item.href}
+            className="group flex items-center bg-primary text-primary-foreground rounded-l-xl px-3 py-3 shadow-lg hover:bg-accent hover:text-accent-foreground transition-all"
+          >
+            <Icon className="w-4 h-4 flex-shrink-0" />
+            <span className="max-w-0 overflow-hidden group-hover:max-w-[80px] group-hover:ml-2 transition-all duration-300 text-xs font-medium whitespace-nowrap">
+              {item.label}
+            </span>
+          </a>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+export default function Home() {
+  return (
+    <>
+      <FloatingContact />
+
+      {/* 1. Hero Slider */}
+      <HeroSlider />
+
+      {/* 2. Stats Bar */}
+      <section className="bg-primary text-primary-foreground py-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+            {STATS.map((s) => (
+              <div key={s.value}>
+                <p className="text-4xl font-black text-accent">{s.value}</p>
+                <p className="text-sm text-primary-foreground/80 mt-1">{s.label}</p>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
+
+      {/* 3. Services Tabs */}
+      <ServicesSection />
+
+      {/* 4. About */}
+      <AboutSection />
+
+      {/* 5. Why Choose Us */}
+      <WhyChooseUsSection />
+
+      {/* 6. Projects Strip */}
+      <ProjectsStrip />
+
+      {/* 7. Testimonials */}
+      <TestimonialsSection />
+
+      {/* 8. FAQ */}
+      <FAQSection />
+
+      {/* 9. CTA */}
+      <CTASection />
     </>
   );
 }
