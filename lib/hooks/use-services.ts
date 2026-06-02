@@ -80,6 +80,19 @@ export function useServices(page: number = 1, limit: number = 10, status?: strin
   return useApiGet<ServicesResponse>(url);
 }
 
+// Fetch all active services for public use (e.g. inquiry form)
+export function useActiveServices() {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/services?page=1&limit=100&status=active`;
+  return useApiGet<Service[]>(url, {
+    fetcher: async (u: string) => {
+      const res = await api.get(u);
+      const d = res.data?.data;
+      // shape: { data: Service[], total, page, last_page }
+      return Array.isArray(d) ? d : (d?.data ?? []);
+    },
+  });
+}
+
 // Update service
 export function useUpdateService() {
   if (!useSWRMutation) {
