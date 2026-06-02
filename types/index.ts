@@ -279,15 +279,19 @@ export interface FAQ {
 
 // Inquiries
 export interface Inquiry {
-  id: string;
-  name: string;
+  id: number;
+  full_name: string;
   email: string;
-  phone?: string;
-  company?: string;
-  subject: string;
-  message: string;
-  status: 'new' | 'pending' | 'completed' | 'cancelled';
-  handled_by?: string;
+  phone_number: string;
+  company_name: string | null;
+  project_location: string;
+  expected_timeline: string | null;
+  estimated_budget: string | null;
+  service_types: string[];
+  project_description: string;
+  status: 'new' | 'pending' | 'contacted' | 'in_progress' | 'completed' | 'cancelled';
+  handled_by: number | null;
+  internal_notes: string | null;
   created_at: string;
   updated_at: string;
 }
