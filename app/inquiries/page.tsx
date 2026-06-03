@@ -104,7 +104,8 @@ export default function InquiriesPage() {
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const { data: activeServices = [] } = useActiveServices();
+  const { data: rawServices } = useActiveServices();
+  const activeServices = Array.isArray(rawServices) ? rawServices : [];
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
