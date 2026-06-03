@@ -81,14 +81,22 @@ export function useServices(page: number = 1, limit: number = 10, status?: strin
 }
 
 // Fetch all active services for public use (e.g. inquiry form)
+// Uses plain fetch (no auth) so it works on public pages without triggering token refresh
 export function useActiveServices() {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/services?page=1&limit=100&status=active`;
   return useApiGet<Service[]>(url, {
     fetcher: async (u: string) => {
-      const res = await api.get(u);
-      const d = res.data?.data;
-      // shape: { data: Service[], total, page, last_page }
-      return Array.isArray(d) ? d : (d?.data ?? []);
+      try {
+        const res = await fetch(u);
+        if (!res.ok) return [];
+        const json = await res.json();
+        const d = json?.data;
+        // shape: { data: Service[], total, page, last_page }
+        const arr = Array.isArray(d) ? d : (d?.data ?? []);
+        return Array.isArray(arr) ? arr : [];
+      } catch {
+        return [];
+      }
     },
   });
 }
