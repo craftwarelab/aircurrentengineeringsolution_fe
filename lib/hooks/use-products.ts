@@ -67,9 +67,14 @@ export function useProducts(page: number = 1, limit: number = 10, status?: strin
     page: page.toString(),
     limit: limit.toString(),
   });
-  
+
   if (status) params.append('status', status);
-  
+
   const url = `${process.env.NEXT_PUBLIC_API_URL}/products?${params.toString()}`;
-  return useApiGet<ProductsResponse>(url);
+  return useApiGet<ProductsResponse>(url, {
+    fetcher: (u: string) => {
+      const axios = require('axios');
+      return axios.get(u, { withCredentials: true }).then((res: any) => res.data);
+    },
+  });
 }
