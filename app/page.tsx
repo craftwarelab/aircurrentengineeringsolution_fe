@@ -6,10 +6,12 @@ import Image from 'next/image';
 import { ArrowRight, ChevronLeft, ChevronRight, Shield, Users, Award, MapPin, Phone, Mail, CheckCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import TestimonialsSection from '@/components/testimonials-section';
 import FAQSection from '@/components/faq-section';
 import { useServices } from '@/lib/hooks/use-services';
 import { useProjects } from '@/lib/hooks/use-projects';
+import { useFeaturedCustomers, type Customer } from '@/lib/hooks/use-customers';
 
 // ─── Hero Slider ──────────────────────────────────────────────────────────────
 const SLIDES = [
@@ -391,6 +393,218 @@ function ProjectsStrip() {
   );
 }
 
+// ─── Customers Section ────────────────────────────────────────────────────────
+function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () => void }) {
+  const logoUrl = customer.logo_public_id
+    ? `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/${customer.logo_public_id}`
+    : null;
+
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col overflow-hidden bg-white border border-border rounded-2xl hover:shadow-md hover:border-primary/30 transition-all cursor-pointer w-44"
+    >
+      <div className="relative w-full h-28 bg-gray-50">
+        {logoUrl ? (
+          <img
+            src={logoUrl}
+            alt={customer.company_name}
+            className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+          />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-2xl font-bold text-gray-300">
+            {customer.company_name[0]}
+          </div>
+        )}
+      </div>
+      <div className="px-3 py-2 border-t border-border">
+        <p className="text-xs font-semibold text-foreground text-center line-clamp-2 group-hover:text-primary transition-colors">
+          {customer.company_name}
+        </p>
+      </div>
+    </button>
+  );
+}
+
+function CustomersSection() {
+  const { data: raw } = useFeaturedCustomers(20);
+  const customers: Customer[] = Array.isArray(raw?.data) ? raw.data : [];
+  const [selected, setSelected] = useState<Customer | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [visibleSet, setVisibleSet] = useState<Set<number>>(new Set([0, 1, 2, 3]));
+  const hovered = useRef(false);
+  const autoTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+  const resumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const visibleCount = 4;
+
+  const sorted = [...customers].sort((a, b) => a.position - b.position);
+  const canScroll = sorted.length > visibleCount;
+
+  const logoUrl = (c: Customer) => c.logo_public_id
+    ? `https://res.cloudinary.com/${process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME}/image/upload/${c.logo_public_id}`
+    : null;
+
+  const advance = (dir: 1 | -1) => {
+    setCurrentIndex((p) => {
+      const next = dir === 1
+        ? (p >= sorted.length - visibleCount ? 0 : p + 1)
+        : (p === 0 ? sorted.length - visibleCount : p - 1);
+      // mark newly visible cards so they fade in
+      setVisibleSet(new Set(Array.from({ length: visibleCount }, (_, i) => next + i)));
+      return next;
+    });
+  };
+
+  const startAuto = () => {
+    if (autoTimer.current) clearInterval(autoTimer.current);
+    autoTimer.current = setInterval(() => {
+      if (!hovered.current) advance(1);
+    }, 3000);
+  };
+
+  const stopAuto = () => {
+    if (autoTimer.current) { clearInterval(autoTimer.current); autoTimer.current = null; }
+  };
+
+  const handleMouseEnter = () => {
+    hovered.current = true;
+    stopAuto();
+    if (resumeTimer.current) { clearTimeout(resumeTimer.current); resumeTimer.current = null; }
+  };
+
+  const handleMouseLeave = () => {
+    hovered.current = false;
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => startAuto(), 30000);
+  };
+
+  const handleManual = (dir: 1 | -1) => {
+    advance(dir);
+    stopAuto();
+    if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    resumeTimer.current = setTimeout(() => startAuto(), 30000);
+  };
+
+  useEffect(() => {
+    if (!canScroll) return;
+    startAuto();
+    return () => {
+      stopAuto();
+      if (resumeTimer.current) clearTimeout(resumeTimer.current);
+    };
+  }, [sorted.length]);
+
+  if (!customers.length) return null;
+
+  return (
+    <section className="py-16 bg-background">
+      <div
+        className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
+        <div className="flex justify-between items-start mb-10">
+          <div>
+            <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-2">Trusted By</p>
+            <h2 className="text-3xl font-bold text-foreground">Our Customers</h2>
+            <p className="text-muted-foreground mt-2">
+              Companies and organisations that partner and work with us.
+            </p>
+          </div>
+          {canScroll && (
+            <div className="hidden sm:flex gap-2">
+              <Button variant="outline" size="icon" onClick={() => handleManual(-1)} className="rounded-full">
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="icon" onClick={() => handleManual(1)} className="rounded-full">
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+        </div>
+
+        <div className="overflow-hidden">
+          <div
+            className="flex gap-4 transition-transform duration-700 ease-in-out"
+            style={{ transform: `translateX(-${currentIndex * (100 / visibleCount)}%)` }}
+          >
+            {sorted.map((c, idx) => {
+              const isVisible = visibleSet.has(idx);
+              return (
+                <button
+                  key={c.id}
+                  onClick={() => setSelected(c)}
+                  className={`group flex-shrink-0 w-[calc(25%-12px)] flex flex-col overflow-hidden bg-white border border-border rounded-2xl hover:shadow-md hover:border-primary/30 transition-all duration-700 cursor-pointer ${
+                    isVisible ? 'opacity-100 translate-y-0' : 'opacity-60 translate-y-1'
+                  }`}
+                >
+                  <div className="relative w-full h-40 bg-gray-50">
+                    {logoUrl(c) ? (
+                      <img
+                        src={logoUrl(c)!}
+                        alt={c.company_name}
+                        className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center bg-gray-100 text-2xl font-bold text-gray-300">
+                        {c.company_name[0]}
+                      </div>
+                    )}
+                  </div>
+                  <div className="px-3 py-2 border-t border-border">
+                    <p className="text-xs font-semibold text-foreground text-center line-clamp-2 group-hover:text-primary transition-colors">
+                      {c.company_name}
+                    </p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {canScroll && (
+          <div className="flex sm:hidden justify-center gap-2 mt-6">
+            <Button variant="outline" size="icon" onClick={() => handleManual(-1)} className="rounded-full">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <Button variant="outline" size="icon" onClick={() => handleManual(1)} className="rounded-full">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Customer Detail Dialog */}
+      <Dialog open={!!selected} onOpenChange={(open) => !open && setSelected(null)}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle>{selected?.company_name}</DialogTitle>
+          </DialogHeader>
+          {selected && (
+            <div className="flex flex-col items-center gap-5 py-4">
+              {logoUrl(selected) ? (
+                <img
+                  src={logoUrl(selected)!}
+                  alt={selected.company_name}
+                  className="max-h-32 max-w-[220px] object-contain"
+                />
+              ) : (
+                <div className="h-20 w-40 bg-gray-100 rounded-lg flex items-center justify-center text-gray-400">
+                  {selected.company_name[0]}
+                </div>
+              )}
+              {selected.short_description && (
+                <p className="text-muted-foreground text-sm text-center">{selected.short_description}</p>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+    </section>
+  );
+}
+
 // ─── CTA Banner ───────────────────────────────────────────────────────────────
 function CTASection() {
   return (
@@ -477,13 +691,16 @@ export default function Home() {
       {/* 6. Projects Strip */}
       <ProjectsStrip />
 
-      {/* 7. Testimonials */}
+      {/* 7. Customers */}
+      <CustomersSection />
+
+      {/* 8. Testimonials */}
       <TestimonialsSection />
 
-      {/* 8. FAQ */}
+      {/* 9. FAQ */}
       <FAQSection />
 
-      {/* 9. CTA */}
+      {/* 10. CTA */}
       <CTASection />
     </>
   );
