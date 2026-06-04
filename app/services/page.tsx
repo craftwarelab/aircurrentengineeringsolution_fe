@@ -107,7 +107,7 @@ export default function ServicesPage() {
       <div className="bg-background py-8">
         {/* Search */}
         <div className="px-4 sm:px-6 lg:px-8 mb-8">
-          <div className="relative max-w-2xl mx-auto">
+          <div className="relative max-w-2xl">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground" size={20} />
             <input
               type="text"

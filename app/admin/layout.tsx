@@ -57,7 +57,7 @@ const navSections = [
   {
     title: 'Content Management',
     items: [
-      { href: '/admin/customer-showcases', label: 'Customer Showcases', icon: Building },
+      { href: '/admin/customers', label: 'Customers', icon: Building },
       { href: '/admin/testimonials', label: 'Testimonials', icon: Star },
       { href: '/admin/faqs', label: 'FAQs', icon: HelpCircle },
     ]
