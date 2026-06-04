@@ -11,12 +11,13 @@ export default function Navigation() {
   const { isAuthenticated } = useAuth();
 
   const navLinks = [
-    { href: "/", label: "Home" },
-    { href: "/about", label: "About" },
-    { href: "/services", label: "Services" },
-    { href: "/products", label: "Products" },
-    { href: "/projects", label: "Projects" },
-    { href: "/contact", label: "Contact" },
+    { href: '/', label: 'Home' },
+    { href: '/about', label: 'About' },
+    { href: '/services', label: 'Services' },
+    { href: '/products', label: 'Products' },
+    { href: '/projects', label: 'Projects' },
+    { href: '/customers', label: 'Customers' },
+    { href: '/contact', label: 'Contact' },
   ];
 
   return (

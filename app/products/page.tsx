@@ -27,7 +27,8 @@ interface Product {
 export default function ProductsPage() {
   // Load active products from real API
   const { data: productsResponse, isLoading: productsLoading, error: productsError } = useProducts(1, 100, 'active');
-  const apiProducts = (productsResponse as any)?.data?.data || (productsResponse as any)?.data || [];
+  const raw = productsResponse as any;
+  const apiProducts = (raw?.data?.data || raw?.data || []).filter((p: any) => p.status === 'active');
 
   // Real categories from API
   const { data: categoriesData } = useCategories();
