@@ -20,18 +20,21 @@ const SLIDES = [
     sub: 'Precision-engineered air systems for commercial & industrial facilities across Sri Lanka.',
     cta: { label: 'Request a Quote', href: '/inquiries' },
     bg: 'from-primary/95 via-primary/80 to-primary/60',
+    img: '/home/one.jpg',
   },
   {
     headline: 'Design. Install. Maintain.',
     sub: 'End-to-end engineering services — from concept design through commissioning and long-term support.',
     cta: { label: 'View Our Services', href: '/services' },
     bg: 'from-primary via-primary/85 to-accent/40',
+    img: '/home/two.jpg',
   },
   {
     headline: 'Energy Efficiency First',
     sub: 'Our systems cut energy consumption by up to 35%, saving you money while reducing your carbon footprint.',
     cta: { label: 'Explore Projects', href: '/projects' },
     bg: 'from-primary/90 via-primary/70 to-primary/50',
+    img: '/home/three.jpg',
   },
 ];
 
@@ -58,8 +61,16 @@ function HeroSlider() {
       {SLIDES.map((slide, i) => (
         <div
           key={i}
-          className={`absolute inset-0 transition-opacity duration-700 bg-gradient-to-r ${slide.bg} ${i === active ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
+          className={`absolute inset-0 transition-opacity duration-700 ${i === active ? 'opacity-100 z-10' : 'opacity-0 z-0'}`}
         >
+          {/* Background photo */}
+          <img
+            src={slide.img}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover"
+          />
+          {/* Gradient overlay on top of photo */}
+          <div className={`absolute inset-0 bg-gradient-to-r ${slide.bg}`} />
           {/* decorative circles */}
           <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-accent/10 rounded-full -mr-48 -mt-48 pointer-events-none" />
           <div className="absolute bottom-0 left-0 w-[300px] h-[300px] bg-white/5 rounded-full -ml-32 -mb-32 pointer-events-none" />
