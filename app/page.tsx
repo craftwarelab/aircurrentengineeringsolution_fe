@@ -18,7 +18,7 @@ const SLIDES = [
   {
     headline: 'Professional HVAC & Ventilation Solutions',
     sub: 'Precision-engineered air systems for commercial & industrial facilities across Sri Lanka.',
-    cta: { label: 'Request a Quote', href: '/inquiries' },
+    cta: { label: 'Submit an Inquiry', href: '/inquiries' },
     bg: 'from-primary/95 via-primary/80 to-primary/60',
     img: '/home/one.jpg',
   },
@@ -197,7 +197,7 @@ function ServicesSection() {
             )}
             <div className="flex gap-3">
               <Button asChild className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                <Link href="/inquiries">Get a Quote <ArrowRight className="ml-2 w-4 h-4" /></Link>
+                <Link href="/inquiries">Submit an Inquiry <ArrowRight className="ml-2 w-4 h-4" /></Link>
               </Button>
               <Button asChild variant="outline">
                 <Link href="/services">All Services</Link>
@@ -629,7 +629,7 @@ function CTASection() {
         </p>
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button asChild size="lg" className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold">
-            <Link href="/inquiries">Get a Free Quote</Link>
+            <Link href="/inquiries">Submit an Inquiry</Link>
           </Button>
           <Button asChild size="lg" variant="outline" className="border-primary text-primary hover:bg-primary/5">
             <Link href="/contact">Contact Us</Link>

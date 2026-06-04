@@ -223,7 +223,7 @@ export default async function ServicePage({
                   href={`/inquiries?service=${encodeURIComponent(service.name)}`}
                   className="flex-1 inline-flex items-center justify-center px-6 py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl transition-colors"
                 >
-                  Get a Quote
+                  Submit an Inquiry
                 </Link>
                 <Link
                   href="/contact"

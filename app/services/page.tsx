@@ -425,7 +425,7 @@ export default function ServicesPage() {
                   className="inline-flex items-center justify-center px-5 py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl transition-colors"
                   onClick={() => setSelectedService(null)}
                 >
-                  Get a Quote
+                  Submit an Inquiry
                 </Link>
                 <button
                   onClick={() => setSelectedService(null)}
