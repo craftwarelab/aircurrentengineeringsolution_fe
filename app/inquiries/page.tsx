@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -331,10 +330,6 @@ export default function InquiriesPage() {
               </div>
             </div>
 
-            <div className="text-center text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link href="/admin/login" className="text-accent hover:underline">Sign in here</Link>
-            </div>
           </div>
         </div>
       </div>
