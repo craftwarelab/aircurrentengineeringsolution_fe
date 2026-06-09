@@ -25,7 +25,6 @@ import {
 import { useProjectTags, useCreateProjectTags, type ProjectTag } from '@/lib/hooks/use-project-tags';
 import api from '@/lib/api';
 import { getCloudinaryImageUrl } from '@/lib/cloudinary';
-import axios from 'axios';
 
 export default function AdminProjects() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -216,13 +215,10 @@ export default function AdminProjects() {
             setUpdateImageProgress({ current: i + 1, total: projectImages.length });
 
             try {
-              await axios.post(
+              await api.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/projects/images/${editingProject.id}`,
                 formDataImage,
-                {
-                  headers: { 'Content-Type': 'multipart/form-data' },
-                  withCredentials: true,
-                }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
               );
             } catch (e) {
               console.error('Failed to upload new image', i);
@@ -334,13 +330,10 @@ export default function AdminProjects() {
             setCurrentImageProgress({ current: i + 1, total: projectImages.length });
 
             try {
-              await axios.post(
+              await api.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/projects/images/${projectId}`,
                 formDataImage,
-                {
-                  headers: { 'Content-Type': 'multipart/form-data' },
-                  withCredentials: true,
-                }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
               );
             } catch (imageError: any) {
               console.error(`Failed to upload image ${i + 1}:`, imageError.response?.data || imageError);
@@ -416,12 +409,10 @@ export default function AdminProjects() {
     setProjectImages([]);
     setMainImageIndex(0);
 
-    // Load existing images
     setImagesToDelete([]);
     try {
-      const imagesResponse = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/projects/images/${project.id}`,
-        { withCredentials: true }
+      const imagesResponse = await api.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/projects/images/${project.id}`
       );
       setExistingProjectImages(imagesResponse.data?.data || []);
     } catch (error) {
