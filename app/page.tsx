@@ -12,6 +12,7 @@ import FAQSection from '@/components/faq-section';
 import { useServices } from '@/lib/hooks/use-services';
 import { useProjects } from '@/lib/hooks/use-projects';
 import { useFeaturedCustomers, type Customer } from '@/lib/hooks/use-customers';
+import { useProducts } from '@/lib/hooks/use-products';
 
 // ─── Hero Slider ──────────────────────────────────────────────────────────────
 const SLIDES = [
@@ -404,6 +405,206 @@ function ProjectsStrip() {
   );
 }
 
+// ─── Featured Products Ring ──────────────────────────────────────────────────
+function FeaturedProductsSection() {
+  const { data: res } = useProducts(1, 50, 'active');
+  const raw = res as any;
+  const allProducts: any[] = (raw?.data?.data || raw?.data || []).filter((p: any) => p.is_featured);
+
+  const CARD_W = 280;
+  const GAP = 20;
+  const SPEED = 0.6;
+  const trackRef = useRef<HTMLDivElement>(null);
+  const animRef = useRef<ReturnType<typeof requestAnimationFrame> | null>(null);
+  const posRef = useRef(0);
+  const pausedRef = useRef(false);
+  const [selected, setSelected] = useState<any | null>(null);
+
+  const items = allProducts.length > 0 ? [...allProducts, ...allProducts, ...allProducts] : [];
+  const loopAt = allProducts.length * (CARD_W + GAP);
+
+  useEffect(() => {
+    if (!allProducts.length) return;
+    const tick = () => {
+      if (!pausedRef.current && trackRef.current) {
+        posRef.current += SPEED;
+        if (posRef.current >= loopAt) posRef.current -= loopAt;
+        trackRef.current.style.transform = `translateX(-${posRef.current}px)`;
+      }
+      animRef.current = requestAnimationFrame(tick);
+    };
+    animRef.current = requestAnimationFrame(tick);
+    return () => { if (animRef.current) cancelAnimationFrame(animRef.current); };
+  }, [allProducts.length, loopAt]);
+
+  if (!allProducts.length) return null;
+
+  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
+
+  return (
+    <section className="py-14 bg-muted/40">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-1">Our Products</p>
+        <h2 className="text-3xl font-bold text-foreground mb-8">Featured Products</h2>
+
+        <div
+          className="overflow-hidden"
+          onMouseEnter={() => { pausedRef.current = true; }}
+          onMouseLeave={() => { pausedRef.current = false; }}
+        >
+          <div
+            ref={trackRef}
+            className="flex will-change-transform"
+            style={{ gap: GAP, width: 'max-content' }}
+          >
+          {items.map((p: any, i: number) => {
+            const mainImg = p.images?.find((img: any) => img.is_main)?.url || p.images?.[0]?.url;
+            const displayPrice = Number(p.sale_price) || Number(p.price);
+            return (
+              <button
+                key={`${p.id}-${i}`}
+                onClick={() => setSelected(p)}
+                className="group flex-shrink-0 flex flex-col overflow-hidden rounded-2xl border border-border bg-white hover:shadow-xl hover:border-primary/40 transition-all duration-300 cursor-pointer"
+                style={{ width: CARD_W }}
+              >
+                <div className="relative bg-gray-50" style={{ height: 200 }}>
+                  {mainImg ? (
+                    <img
+                      src={`${cloudinaryBase}${mainImg}`}
+                      alt={p.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10 text-4xl">
+                      ❄️
+                    </div>
+                  )}
+                  {p.sale_price && Number(p.sale_price) > 0 && (
+                    <span className="absolute top-2 right-2 text-[10px] px-2 py-0.5 bg-red-500 text-white rounded-full font-semibold">SALE</span>
+                  )}
+                </div>
+                <div className="px-4 py-3 border-t border-border bg-white flex-1 flex flex-col gap-1">
+                  <p className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors text-left">
+                    {p.name}
+                  </p>
+                  {displayPrice > 0 && (
+                    <p className="text-xs text-muted-foreground">${displayPrice.toLocaleString()}</p>
+                  )}
+                </div>
+              </button>
+            );
+          })}
+          </div>
+        </div>
+      </div>
+
+      {/* Product Dialog */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="bg-background rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Image */}
+            {(() => {
+              const mainImg = selected.images?.find((img: any) => img.is_main)?.url || selected.images?.[0]?.url;
+              return mainImg ? (
+                <div className="relative w-full h-64 bg-gray-100 overflow-hidden rounded-t-2xl">
+                  <img
+                    src={`${cloudinaryBase}${mainImg}`}
+                    alt={selected.name}
+                    className="absolute inset-0 w-full h-full object-cover"
+                  />
+                </div>
+              ) : null;
+            })()}
+
+            <div className="p-6">
+              {/* Breadcrumb — SEO-friendly visible path */}
+              <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
+                <a href="/" className="hover:text-foreground transition-colors">Home</a>
+                <span>/</span>
+                <a href="/products" className="hover:text-foreground transition-colors">Products</a>
+                {selected.slug && (
+                  <>
+                    <span>/</span>
+                    <a href={`/products/${selected.slug}`} className="hover:text-foreground transition-colors text-foreground font-medium">{selected.name}</a>
+                  </>
+                )}
+              </nav>
+
+              {/* Categories */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {selected.is_featured && (
+                  <span className="text-xs px-2.5 py-0.5 bg-accent text-accent-foreground rounded-full">Featured</span>
+                )}
+                {selected.categories?.map((c: any) => (
+                  <span key={c.id} className="text-xs px-2.5 py-0.5 bg-accent/10 text-accent rounded-full">{c.name}</span>
+                ))}
+              </div>
+
+              <h2 className="text-2xl font-bold text-foreground mb-1">{selected.name}</h2>
+              {selected.model && <p className="text-sm text-muted-foreground mb-3">Model: {selected.model}</p>}
+
+              {/* Price */}
+              {(Number(selected.sale_price) > 0 || Number(selected.price) > 0) && (
+                <div className="flex items-baseline gap-2 mb-4">
+                  <span className="text-2xl font-bold">${(Number(selected.sale_price) || Number(selected.price)).toLocaleString()}</span>
+                  {selected.sale_price && Number(selected.sale_price) < Number(selected.price) && (
+                    <span className="text-base text-muted-foreground line-through">${Number(selected.price).toLocaleString()}</span>
+                  )}
+                </div>
+              )}
+
+              {(selected.short_description || selected.description) && (
+                <p className="text-muted-foreground text-sm leading-relaxed mb-5">
+                  {selected.short_description || selected.description}
+                </p>
+              )}
+
+              {/* Tags */}
+              {selected.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-5">
+                  {selected.tags.map((t: any) => (
+                    <span key={t.id} className="text-xs px-2 py-0.5 border border-border rounded-full text-muted-foreground">#{t.name}</span>
+                  ))}
+                </div>
+              )}
+
+              {/* CTAs — all use SEO-friendly slug-based hrefs */}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
+                {selected.slug && (
+                  <a
+                    href={`/products/${selected.slug}`}
+                    className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors text-sm"
+                  >
+                    View Full Details
+                  </a>
+                )}
+                <a
+                  href={`/inquiries?product=${encodeURIComponent(selected.name)}${selected.slug ? `&ref=/products/${selected.slug}` : ''}`}
+                  className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl transition-colors text-sm"
+                >
+                  Submit an Inquiry
+                </a>
+                <button
+                  onClick={() => setSelected(null)}
+                  className="px-5 py-3 border border-border hover:bg-muted rounded-xl text-sm transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
 // ─── Customers Section ────────────────────────────────────────────────────────
 function CustomerCard({ customer, onClick }: { customer: Customer; onClick: () => void }) {
   const logoUrl = customer.logo_public_id
@@ -702,16 +903,19 @@ export default function Home() {
       {/* 6. Projects Strip */}
       <ProjectsStrip />
 
-      {/* 7. Customers */}
+      {/* 7. Featured Products */}
+      <FeaturedProductsSection />
+
+      {/* 8. Customers */}
       <CustomersSection />
 
-      {/* 8. Testimonials */}
+      {/* 9. Testimonials */}
       <TestimonialsSection />
 
-      {/* 9. FAQ */}
+      {/* 10. FAQ */}
       <FAQSection />
 
-      {/* 10. CTA */}
+      {/* 11. CTA */}
       <CTASection />
     </>
   );

@@ -30,7 +30,6 @@ import { useCreateProduct, useProducts, type CreateProductRequest } from '@/lib/
 import { useCreateTags } from '@/lib/hooks/use-tags';
 import api from '@/lib/api';
 import { getCloudinaryImageUrl } from '@/lib/cloudinary';
-import axios from 'axios';
 import { toast } from 'sonner';
 
 export default function AdminProducts() {
@@ -267,13 +266,10 @@ export default function AdminProducts() {
             setUpdateImageProgress({ current: i + 1, total: productImages.length });
 
             try {
-              await axios.post(
+              await api.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${editingProduct.id}`,
                 formDataImage,
-                {
-                  headers: { 'Content-Type': 'multipart/form-data' },
-                  withCredentials: true,
-                }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
               );
             } catch (e) {
               console.error('Failed to upload new image', i);
@@ -401,15 +397,10 @@ export default function AdminProducts() {
             setCurrentImageProgress({ current: i + 1, total: productImages.length });
 
             try {
-              await axios.post(
+              await api.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${productId}`,
                 formDataImage,
-                {
-                  headers: {
-                    'Content-Type': 'multipart/form-data',
-                  },
-                  withCredentials: true,
-                }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
               );
             } catch (imageError: any) {
               console.error(`Failed to upload image ${i + 1}:`, imageError.response?.data || imageError);
@@ -490,12 +481,11 @@ export default function AdminProducts() {
     setProductImages([]);
     setMainImageIndex(0);
 
-    // Load existing images using raw axios (avoid auth interceptor issues)
-    setImagesToDelete([]); // reset deleted images
+    // Load existing images
+    setImagesToDelete([]);
     try {
-      const imagesResponse = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${product.id}`,
-        { withCredentials: true }
+      const imagesResponse = await api.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/products/images/product/${product.id}`
       );
       setExistingProductImages(imagesResponse.data?.data || []);
     } catch (error) {
