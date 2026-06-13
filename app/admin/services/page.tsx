@@ -39,7 +39,6 @@ import { useServiceTags, useCreateServiceTags } from '@/lib/hooks/use-service-ta
 import { toast } from 'sonner';
 import ImageUpload from '@/components/ui/image-upload';
 import api from '@/lib/api';
-import axios from 'axios';
 import { getCloudinaryImageUrl } from '@/lib/cloudinary';
 
 export default function AdminServices() {
@@ -304,10 +303,10 @@ export default function AdminServices() {
             setUpdateImageProgress({ current: i + 1, total: serviceImages.length });
 
             try {
-              await axios.post(
+              await api.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/services/images/${editingService.id}`,
                 formDataImage,
-                { headers: { 'Content-Type': 'multipart/form-data' }, withCredentials: true }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
               );
             } catch (e) {
               console.error('Failed to upload new service image', i);
@@ -425,13 +424,10 @@ export default function AdminServices() {
             setCurrentImageProgress({ current: i + 1, total: serviceImages.length });
 
             try {
-              await axios.post(
+              await api.post(
                 `${process.env.NEXT_PUBLIC_API_URL}/services/images/${serviceId}`,
                 formDataImage,
-                {
-                  headers: { 'Content-Type': 'multipart/form-data' },
-                  withCredentials: true,
-                }
+                { headers: { 'Content-Type': 'multipart/form-data' } }
               );
             } catch (imageError: any) {
               console.error(`Failed to upload service image ${i + 1}:`, imageError.response?.data || imageError);
@@ -510,9 +506,8 @@ export default function AdminServices() {
 
     // Load existing service images
     try {
-      const imagesResponse = await axios.get(
-        `${process.env.NEXT_PUBLIC_API_URL}/services/images/${service.id}`,
-        { withCredentials: true }
+      const imagesResponse = await api.get(
+        `${process.env.NEXT_PUBLIC_API_URL}/services/images/${service.id}`
       );
       setExistingServiceImages(imagesResponse.data?.data || []);
     } catch (error) {
