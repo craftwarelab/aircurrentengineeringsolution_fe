@@ -4,6 +4,7 @@ import { Geist, Geist_Mono } from 'next/font/google'
 import Navigation from '@/components/navigation'
 import Footer from '@/components/footer'
 import { Toaster } from '@/components/ui/sonner'
+import WhatsAppButton from '@/components/whatsapp-button'
 import { SWRProvider } from '@/components/providers/swr-provider'
 import { AuthProvider } from '@/components/providers/auth-provider'
 import AuthRestoreOverlay from '@/components/auth-restore-overlay'
@@ -60,6 +61,7 @@ export default function RootLayout({
             </main>
             <Footer />
             <Toaster />
+            <WhatsAppButton />
           </AuthProvider>
         </SWRProvider>
         {/* {process.env.NODE_ENV === 'production' && <Analytics />} */}
