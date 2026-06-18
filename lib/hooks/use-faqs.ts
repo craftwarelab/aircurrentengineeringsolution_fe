@@ -26,6 +26,16 @@ export interface CreateFAQRequest {
 
 export interface UpdateFAQRequest extends CreateFAQRequest {}
 
+// Paginated response from GET /api/faqs
+export interface FAQsPagedResponse {
+  success: boolean;
+  data: FAQ[];
+  total: number;
+  page: number;
+  limit: number;
+  last_page: number;
+}
+
 export interface FAQsResponse {
   success: boolean;
   data: FAQ[];
@@ -65,13 +75,37 @@ export interface PriorityResponse {
   };
 }
 
-// Get all FAQs
-export function useFAQs() {
-  return useApiGet<FAQ[]>(process.env.NEXT_PUBLIC_API_URL ? process.env.NEXT_PUBLIC_API_URL + '/faqs/' : null, {
-    fetcher: async (url: string) => {
-      const response = await api.get(url);
-      return response.data.data;
-    }
+// Get all FAQs — paginated, with optional filters & search
+export function useFAQs(
+  page: number = 1,
+  limit: number = 10,
+  options?: {
+    status?: string;
+    is_active?: boolean;
+    search?: string;
+  }
+) {
+  const base = process.env.NEXT_PUBLIC_API_URL;
+  if (!base) {
+    return useApiGet<FAQsPagedResponse>(null);
+  }
+
+  const params = new URLSearchParams({
+    page: String(page),
+    limit: String(limit),
+  });
+  if (options?.status)                          params.set('status',    options.status);
+  if (options?.is_active !== undefined)         params.set('is_active', String(options.is_active));
+  if (options?.search && options.search.trim()) params.set('search',    options.search.trim());
+
+  const url = `${base}/faqs?${params.toString()}`;
+
+  return useApiGet<FAQsPagedResponse>(url, {
+    fetcher: async (u: string) => {
+      const response = await api.get(u);
+      // Response shape: { success, data: FAQ[], total, page, limit, last_page }
+      return response.data as FAQsPagedResponse;
+    },
   });
 }
 

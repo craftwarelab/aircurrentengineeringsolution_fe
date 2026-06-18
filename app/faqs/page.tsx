@@ -19,8 +19,7 @@ async function getVisibleFAQs(): Promise<FAQ[]> {
   const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   try {
     const res = await fetch(`${base}/faqs/visible`, {
-      // Revalidate every 10 minutes so crawlers always get fresh data
-      next: { revalidate: 600 },
+      cache: 'no-store', // always fetch live — ensures deactivated FAQs disappear and newly activated ones appear immediately
     });
     if (!res.ok) return [];
     const json = await res.json();
