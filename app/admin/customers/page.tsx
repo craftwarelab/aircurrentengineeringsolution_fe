@@ -58,6 +58,7 @@ export default function AdminCustomers() {
   const [formData, setFormData] = useState({ ...emptyForm });
   const [logoFile, setLogoFile] = useState<File | null>(null);
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [slugManuallyEdited, setSlugManuallyEdited] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -73,6 +74,7 @@ export default function AdminCustomers() {
     setFormData({ ...emptyForm });
     setLogoFile(null);
     setLogoPreview(null);
+    setSlugManuallyEdited(false);
     setEditingCustomer(null);
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
@@ -91,6 +93,7 @@ export default function AdminCustomers() {
 
   const handleOpenEdit = (customer: Customer) => {
     setEditingCustomer(customer);
+    setSlugManuallyEdited(true); // in edit mode, treat existing slug as manually set
     setFormData({
       company_name: customer.company_name,
       short_description: customer.short_description ?? '',
@@ -178,21 +181,52 @@ export default function AdminCustomers() {
   };
 
   const handleToggleActive = async (customer: Customer) => {
+    const newActive = !customer.is_active;
+    // Optimistic patch — update only this customer's is_active in the cache,
+    // preserving array order so the row doesn't jump
+    mutate(
+      (prev: any) => prev
+        ? { ...prev, data: prev.data.map((c: Customer) => c.id === customer.id ? { ...c, is_active: newActive } : c) }
+        : prev,
+      false
+    );
     try {
       await toggleActive(customer.id);
-      mutate();
-      toast.success(`Customer ${customer.is_active ? 'deactivated' : 'activated'}`);
+      toast.success(`Customer ${newActive ? 'activated' : 'deactivated'}`);
+      // No bare mutate() — don't re-fetch or the sort order will change
     } catch {
+      // Roll back on error
+      mutate(
+        (prev: any) => prev
+          ? { ...prev, data: prev.data.map((c: Customer) => c.id === customer.id ? { ...c, is_active: customer.is_active } : c) }
+          : prev,
+        false
+      );
       toast.error('Failed to toggle active status');
     }
   };
 
   const handleToggleFeatured = async (customer: Customer) => {
+    const newFeatured = !customer.is_featured;
+    // Optimistic patch — update only this customer's is_featured in the cache
+    mutate(
+      (prev: any) => prev
+        ? { ...prev, data: prev.data.map((c: Customer) => c.id === customer.id ? { ...c, is_featured: newFeatured } : c) }
+        : prev,
+      false
+    );
     try {
       await toggleFeatured(customer.id);
-      mutate();
-      toast.success(`Customer ${customer.is_featured ? 'unfeatured' : 'featured'}`);
+      toast.success(`Customer ${newFeatured ? 'featured' : 'unfeatured'}`);
+      // No bare mutate()
     } catch {
+      // Roll back on error
+      mutate(
+        (prev: any) => prev
+          ? { ...prev, data: prev.data.map((c: Customer) => c.id === customer.id ? { ...c, is_featured: customer.is_featured } : c) }
+          : prev,
+        false
+      );
       toast.error('Failed to toggle featured status');
     }
   };
@@ -236,11 +270,16 @@ export default function AdminCustomers() {
                     <Input
                       id="company_name"
                       value={formData.company_name}
-                      onChange={(e) => setFormData({
-                        ...formData,
-                        company_name: e.target.value,
-                        slug: formData.slug || generateSlug(e.target.value),
-                      })}
+                      onChange={(e) => {
+                        const name = e.target.value;
+                        setFormData({
+                          ...formData,
+                          company_name: name,
+                          // Always keep slug in sync while typing company name,
+                          // unless the user has manually edited the slug field
+                          slug: slugManuallyEdited ? formData.slug : generateSlug(name),
+                        });
+                      }}
                       placeholder="TechCorp Solutions"
                       required
                     />
@@ -261,12 +300,30 @@ export default function AdminCustomers() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="slug">Slug</Label>
-                      <Input
-                        id="slug"
-                        value={formData.slug}
-                        onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                        placeholder="techcorp-solutions"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="slug"
+                          value={formData.slug}
+                          onChange={(e) => {
+                            setSlugManuallyEdited(true);
+                            setFormData({ ...formData, slug: e.target.value });
+                          }}
+                          placeholder="techcorp-solutions"
+                        />
+                        {slugManuallyEdited && !editingCustomer && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSlugManuallyEdited(false);
+                              setFormData({ ...formData, slug: generateSlug(formData.company_name) });
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-blue-500 hover:underline"
+                            title="Re-sync slug from company name"
+                          >
+                            auto
+                          </button>
+                        )}
+                      </div>
                     </div>
                     <div>
                       <Label htmlFor="position">Position</Label>
@@ -484,22 +541,28 @@ export default function AdminCustomers() {
               {totalPages > 1 && (
                 <div className="flex items-center justify-between mt-4 pt-4 border-t">
                   <div className="text-sm text-gray-600">
-                    Page {currentPage} of {totalPages} — {total} total
+                    Showing {((currentPage - 1) * itemsPerPage) + 1}–{Math.min(currentPage * itemsPerPage, total)} of {total}
                   </div>
-                  <div className="flex items-center gap-2">
-                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                      Previous
-                    </Button>
-                    <div className="flex gap-1">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                        <Button key={page} variant={currentPage === page ? 'default' : 'outline'} size="sm" onClick={() => setCurrentPage(page)} className="min-w-[36px]">
-                          {page}
-                        </Button>
-                      ))}
-                    </div>
-                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                      Next
-                    </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(1)} disabled={currentPage === 1}>«</Button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>‹</Button>
+
+                    {Array.from({ length: totalPages }, (_, i) => i + 1)
+                      .filter((p) => p === 1 || p === totalPages || Math.abs(p - currentPage) <= 1)
+                      .reduce<(number | 'e')[]>((acc, p, idx, arr) => {
+                        if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('e');
+                        acc.push(p);
+                        return acc;
+                      }, [])
+                      .map((p, i) =>
+                        p === 'e'
+                          ? <span key={`e${i}`} className="px-1 text-gray-400 text-sm select-none">…</span>
+                          : <Button key={p} variant={currentPage === p ? 'default' : 'outline'} size="sm" className="w-8 h-8 p-0" onClick={() => setCurrentPage(p as number)}>{p}</Button>
+                      )
+                    }
+
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>›</Button>
+                    <Button variant="outline" size="sm" onClick={() => setCurrentPage(totalPages)} disabled={currentPage === totalPages}>»</Button>
                   </div>
                 </div>
               )}

@@ -6,6 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowRight, Clock, Users, Award, Phone, Mail, MapPin, X, ChevronsUpDown, Loader2, CheckCircle2, XCircle } from 'lucide-react';
 import type { CreateInquiryRequest } from '@/lib/hooks/use-inquiries';
@@ -100,6 +101,7 @@ const EMPTY_FORM: CreateInquiryRequest = {
 export default function InquiriesPage() {
   const { toast } = useToast();
   const [formData, setFormData] = useState<CreateInquiryRequest>(EMPTY_FORM);
+  const [phoneValid, setPhoneValid] = useState(false);
   const [dialogState, setDialogState] = useState<DialogState | null>(null);
   const [errorMsg, setErrorMsg] = useState('');
 
@@ -127,6 +129,10 @@ export default function InquiriesPage() {
       toast({ title: 'Please select at least one service', variant: 'destructive' });
       return;
     }
+    if (!phoneValid) {
+      toast({ title: 'Please enter a valid phone number', variant: 'destructive' });
+      return;
+    }
     setDialogState('confirm');
   };
 
@@ -142,6 +148,7 @@ export default function InquiriesPage() {
       if (!response.ok) throw new Error(data.message || 'Failed to submit');
       setDialogState('success');
       setFormData(EMPTY_FORM);
+      setPhoneValid(false);
     } catch (error: any) {
       setErrorMsg(error.message || 'Please try again or contact us directly.');
       setDialogState('error');
@@ -203,7 +210,12 @@ export default function InquiriesPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
                     <label className="block text-sm font-medium mb-2">Phone Number *</label>
-                    <Input name="phone_number" value={formData.phone_number} onChange={handleChange} required placeholder="+94 70 123 4567" />
+                    <PhoneInput
+                      value={formData.phone_number}
+                      onChange={(val) => setFormData((prev) => ({ ...prev, phone_number: val }))}
+                      onValidChange={setPhoneValid}
+                      required
+                    />
                   </div>
                   <div>
                     <label className="block text-sm font-medium mb-2">Company / Organization</label>
