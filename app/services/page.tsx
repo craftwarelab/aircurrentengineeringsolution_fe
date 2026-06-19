@@ -47,8 +47,8 @@ export default function ServicesPage() {
     : (categoriesData as any)?.data || [];
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSubcategories, setSelectedSubcategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [selectedSubcategories, setSelectedSubcategories] = useState<number[]>([]);
 
   // Dialog state
   const [selectedService, setSelectedService] = useState<Service | null>(null);
@@ -56,17 +56,16 @@ export default function ServicesPage() {
 
   const relevantSubcategories = useMemo(() => {
     if (selectedCategories.length === 0) return [];
-    const selectedSet = new Set(selectedCategories.map((c) => c.toLowerCase()));
+    const selectedSet = new Set(selectedCategories);
     return (categoryTree || []).flatMap((cat: any) =>
-      selectedSet.has((cat.name || '').toLowerCase()) ? cat.subcategories || [] : []
+      selectedSet.has(cat.id) ? cat.subcategories || [] : []
     );
   }, [selectedCategories, categoryTree]);
 
   useEffect(() => {
     if (selectedSubcategories.length === 0) return;
-    const stillValid = selectedSubcategories.filter((subName) =>
-      relevantSubcategories.some((sub: any) => sub.name === subName)
-    );
+    const validIds = new Set(relevantSubcategories.map((sub: any) => sub.id));
+    const stillValid = selectedSubcategories.filter((id) => validIds.has(id));
     if (stillValid.length !== selectedSubcategories.length) setSelectedSubcategories(stillValid);
   }, [selectedCategories, relevantSubcategories]);
 
@@ -83,14 +82,14 @@ export default function ServicesPage() {
     }
     if (selectedCategories.length > 0) {
       result = result.filter((s) => {
-        const names = (s.categories || []).map((c: any) => c.name.toLowerCase());
-        return selectedCategories.some((cat) => names.includes(cat.toLowerCase()));
+        const ids = (s.categories || []).map((c: any) => Number(c.id));
+        return selectedCategories.some((id) => ids.includes(id));
       });
     }
     if (selectedSubcategories.length > 0) {
       result = result.filter((s) => {
-        const names = (s.subcategories || []).map((sub: any) => sub.name.toLowerCase());
-        return selectedSubcategories.some((sub) => names.includes(sub.toLowerCase()));
+        const ids = (s.subcategories || []).map((sub: any) => Number(sub.id));
+        return selectedSubcategories.some((id) => ids.includes(id));
       });
     }
     return result;
@@ -130,70 +129,41 @@ export default function ServicesPage() {
         <div className="flex flex-col lg:flex-row gap-8 px-4 sm:px-6 lg:px-8">
           {/* Sidebar */}
           <div className="w-full lg:w-72 flex-shrink-0">
-            <div className="bg-card border border-border rounded-xl p-6 sticky top-24 space-y-8">
-              <div>
-                <h4 className="font-semibold mb-3">Categories</h4>
-                <div className="space-y-1 text-sm">
-                  {categories.length > 0 ? (
-                    categories.map((category) => {
-                      const isSelected = selectedCategories.includes(category.name);
-                      return (
-                        <button
-                          key={category.id}
-                          onClick={() =>
-                            setSelectedCategories((prev) =>
-                              isSelected ? prev.filter((c) => c !== category.name) : [...prev, category.name]
-                            )
-                          }
-                          className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
-                            isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                          }`}
-                        >
-                          <span>{category.name}</span>
-                          {isSelected && <span className="text-xs">✓</span>}
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No categories available</p>
-                  )}
-                  {selectedCategories.length > 0 && (
-                    <button
-                      onClick={() => setSelectedCategories([])}
-                      className="text-xs text-muted-foreground hover:text-foreground mt-1"
-                    >
-                      Clear all
-                    </button>
-                  )}
-                </div>
-              </div>
+            <div className="bg-card border border-border rounded-xl sticky top-24 max-h-[calc(100vh-7rem)] flex flex-col overflow-hidden">
+              <div className="flex-1 overflow-y-auto p-6 space-y-8 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
 
-              {relevantSubcategories.length > 0 && (
+                {/* Categories */}
                 <div>
-                  <h4 className="font-semibold mb-3">Subcategories</h4>
-                  <div className="space-y-1 text-sm">
-                    {relevantSubcategories.map((sub: any) => {
-                      const isSelected = selectedSubcategories.includes(sub.name);
-                      return (
-                        <button
-                          key={sub.id}
-                          onClick={() =>
-                            setSelectedSubcategories((prev) =>
-                              isSelected ? prev.filter((s) => s !== sub.name) : [...prev, sub.name]
-                            )
-                          }
-                          className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
-                            isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
-                          }`}
-                        >
-                          <span>{sub.name}</span>
-                          {isSelected && <span className="text-xs">✓</span>}
-                        </button>
-                      );
-                    })}
-                    {selectedSubcategories.length > 0 && (
+                  <h4 className="font-semibold mb-3">Categories</h4>
+                  <div className={`space-y-1 text-sm ${categories.length > 8 ? 'max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent' : ''}`}>
+                    {categories.length > 0 ? (
+                      categories.map((category) => {
+                        const isSelected = selectedCategories.includes(category.id);
+                        return (
+                          <button
+                            key={category.id}
+                            onClick={() =>
+                              setSelectedCategories((prev) =>
+                                isSelected
+                                  ? prev.filter((id) => id !== category.id)
+                                  : [...prev, category.id]
+                              )
+                            }
+                            className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+                              isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                            }`}
+                          >
+                            <span>{category.name}</span>
+                            {isSelected && <span className="text-xs">✓</span>}
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <p className="text-sm text-muted-foreground">No categories available</p>
+                    )}
+                    {selectedCategories.length > 0 && (
                       <button
-                        onClick={() => setSelectedSubcategories([])}
+                        onClick={() => setSelectedCategories([])}
                         className="text-xs text-muted-foreground hover:text-foreground mt-1"
                       >
                         Clear all
@@ -201,7 +171,46 @@ export default function ServicesPage() {
                     )}
                   </div>
                 </div>
-              )}
+
+                {/* Subcategories */}
+                {relevantSubcategories.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-3">Subcategories</h4>
+                    <div className={`space-y-1 text-sm ${relevantSubcategories.length > 8 ? 'max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent' : ''}`}>
+                      {relevantSubcategories.map((sub: any) => {
+                        const isSelected = selectedSubcategories.includes(sub.id);
+                        return (
+                          <button
+                            key={sub.id}
+                            onClick={() =>
+                              setSelectedSubcategories((prev) =>
+                                isSelected
+                                  ? prev.filter((id) => id !== sub.id)
+                                  : [...prev, sub.id]
+                              )
+                            }
+                            className={`w-full text-left px-3 py-1.5 rounded-lg transition-colors flex items-center justify-between ${
+                              isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted'
+                            }`}
+                          >
+                            <span>{sub.name}</span>
+                            {isSelected && <span className="text-xs">✓</span>}
+                          </button>
+                        );
+                      })}
+                      {selectedSubcategories.length > 0 && (
+                        <button
+                          onClick={() => setSelectedSubcategories([])}
+                          className="text-xs text-muted-foreground hover:text-foreground mt-1"
+                        >
+                          Clear all
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+              </div>
             </div>
           </div>
 

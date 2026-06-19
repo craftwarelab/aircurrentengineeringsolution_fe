@@ -1,4 +1,3 @@
-// Dynamic imports to handle missing swr package
 let useSWRMutation: any = null;
 
 try {
@@ -8,10 +7,11 @@ try {
   console.warn('SWR not available. Please install axios and swr packages: npm install axios swr');
 }
 
-import { useApiGet, useApiPost, useApiPut, useApiDelete } from '@/lib/hooks/use-api';
+import { useApiGet, useApiPost } from '@/lib/hooks/use-api';
 import api from '@/lib/api';
 
-// Types based on API documentation
+// ─── Types ────────────────────────────────────────────────────────────────────
+
 export interface Testimonial {
   id: number;
   message: string;
@@ -26,17 +26,27 @@ export interface Testimonial {
   updated_at: string;
 }
 
+// is_approved is NOT accepted on create — always false on creation per API docs.
+// position is optional — auto-assigned if omitted.
 export interface CreateTestimonialRequest {
   message: string;
   customer_name: string;
-  customer_position?: string;
-  company_name?: string;
+  customer_position?: string | null;
+  company_name?: string | null;
+  position?: number;
   status?: 'draft' | 'active' | 'inactive';
   is_active?: boolean;
-  is_approved?: boolean;
 }
 
-export interface UpdateTestimonialRequest extends CreateTestimonialRequest {}
+export interface UpdateTestimonialRequest {
+  message?: string;
+  customer_name?: string;
+  customer_position?: string | null;
+  company_name?: string | null;
+  position?: number;
+  status?: 'draft' | 'active' | 'inactive';
+  is_active?: boolean;
+}
 
 export interface TestimonialsResponse {
   success: boolean;
@@ -52,169 +62,149 @@ export interface TestimonialResponse {
 export interface ToggleResponse {
   success: boolean;
   message: string;
-  data: {
-    id: number;
-    is_active: boolean;
-  };
+  data: Partial<Testimonial>;
 }
 
 export interface ApproveResponse {
   success: boolean;
   message: string;
-  data: {
-    id: number;
-    is_approved: boolean;
-  };
+  data: Partial<Testimonial>;
 }
 
 export interface PositionResponse {
   success: boolean;
   message: string;
-  data: {
-    id: number;
-    position: number;
-  };
+  data: Partial<Testimonial>;
 }
 
-// Get all testimonials
+// ─── Hooks ────────────────────────────────────────────────────────────────────
+
+const BASE = process.env.NEXT_PUBLIC_API_URL;
+
+// Admin — all testimonials
 export function useTestimonials() {
-  return useApiGet<Testimonial[]>(process.env.NEXT_PUBLIC_API_URL+'/testimonials/');
+  return useApiGet<Testimonial[]>(BASE ? `${BASE}/testimonials/` : null, {
+    fetcher: async (url: string) => {
+      const res = await api.get(url);
+      const d = res.data?.data;
+      return Array.isArray(d) ? d : [];
+    },
+    // Prevent SWR from auto-revalidating on window focus — that would
+    // re-sort the list and cause rows to jump after approve/toggle actions
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
+  });
 }
 
-// Get visible testimonials (for frontend)
+// Public — only visible testimonials (is_active + is_approved + status=active)
 export function useVisibleTestimonials() {
-  return useApiGet<Testimonial[]>(process.env.NEXT_PUBLIC_API_URL+'/testimonials/visible');
+  return useApiGet<Testimonial[]>(BASE ? `${BASE}/testimonials/visible` : null, {
+    fetcher: async (url: string) => {
+      const res = await api.get(url);
+      const d = res.data?.data;
+      return Array.isArray(d) ? d : [];
+    },
+  });
 }
 
-// Get testimonial by ID
+// Get by ID
 export function useTestimonial(testimonialId: number | null) {
-  return useApiGet<Testimonial>(testimonialId ? process.env.NEXT_PUBLIC_API_URL+`/testimonials/${testimonialId}` : null);
+  return useApiGet<Testimonial>(
+    testimonialId && BASE ? `${BASE}/testimonials/${testimonialId}` : null,
+    {
+      fetcher: async (url: string) => {
+        const res = await api.get(url);
+        return res.data?.data ?? null;
+      },
+    }
+  );
 }
 
-// Create testimonial
+// Create
 export function useCreateTestimonial() {
   return useApiPost<Testimonial>();
 }
 
-// Update testimonial
+// Update
 export function useUpdateTestimonial() {
   if (!useSWRMutation) {
-    return {
-      trigger: () => Promise.reject(new Error('SWR not installed')),
-      isMutating: false,
-      error: null,
-      data: null,
-    };
+    return { trigger: () => Promise.reject(new Error('SWR not installed')), isMutating: false, error: null, data: null };
   }
-
   return useSWRMutation(
     'update-testimonial',
-    async (key: string, { arg }: { arg: { testimonialId: number, data: UpdateTestimonialRequest } }) => {
-      const response = await api.put(`${process.env.NEXT_PUBLIC_API_URL}/testimonials/${arg.testimonialId}`, arg.data);
-      return response.data as TestimonialResponse;
+    async (_key: string, { arg }: { arg: { testimonialId: number; data: UpdateTestimonialRequest } }) => {
+      const res = await api.put(`${BASE}/testimonials/${arg.testimonialId}`, arg.data);
+      return res.data as TestimonialResponse;
     }
   );
 }
 
-// Delete testimonial
+// Delete
 export function useDeleteTestimonial() {
   if (!useSWRMutation) {
-    return {
-      trigger: () => Promise.reject(new Error('SWR not installed')),
-      isMutating: false,
-      error: null,
-      data: null,
-    };
+    return { trigger: () => Promise.reject(new Error('SWR not installed')), isMutating: false, error: null, data: null };
   }
-
   return useSWRMutation(
     'delete-testimonial',
-    async (key: string, { arg }: { arg: string }) => {
-      const response = await api.delete(`${process.env.NEXT_PUBLIC_API_URL}/testimonials/${arg}`);
-      // Handle cases where backend returns null or empty response
-      return (response.data && response.data !== 'null') ? response.data : { message: 'Deleted successfully' };
+    async (_key: string, { arg }: { arg: string }) => {
+      const res = await api.delete(`${BASE}/testimonials/${arg}`);
+      return (res.data && res.data !== 'null') ? res.data : { message: 'Deleted successfully' };
     }
   );
 }
 
-// Approve testimonial
+// Approve
 export function useApproveTestimonial() {
   if (!useSWRMutation) {
-    return {
-      trigger: () => Promise.reject(new Error('SWR not installed')),
-      isMutating: false,
-      error: null,
-      data: null,
-    };
+    return { trigger: () => Promise.reject(new Error('SWR not installed')), isMutating: false, error: null, data: null };
   }
-
   return useSWRMutation(
     'approve-testimonial',
-    async (key: string, { arg }: { arg: number }) => {
-      const response = await api.patch(`${process.env.NEXT_PUBLIC_API_URL}/testimonials/${arg}/approve`);
-      return response.data as ApproveResponse;
+    async (_key: string, { arg }: { arg: number }) => {
+      const res = await api.patch(`${BASE}/testimonials/${arg}/approve`);
+      return res.data as ApproveResponse;
     }
   );
 }
 
-// Unapprove testimonial
+// Unapprove
 export function useUnapproveTestimonial() {
   if (!useSWRMutation) {
-    return {
-      trigger: () => Promise.reject(new Error('SWR not installed')),
-      isMutating: false,
-      error: null,
-      data: null,
-    };
+    return { trigger: () => Promise.reject(new Error('SWR not installed')), isMutating: false, error: null, data: null };
   }
-
   return useSWRMutation(
     'unapprove-testimonial',
-    async (key: string, { arg }: { arg: number }) => {
-      const response = await api.patch(`${process.env.NEXT_PUBLIC_API_URL}/testimonials/${arg}/unapprove`);
-      return response.data as ApproveResponse;
+    async (_key: string, { arg }: { arg: number }) => {
+      const res = await api.patch(`${BASE}/testimonials/${arg}/unapprove`);
+      return res.data as ApproveResponse;
     }
   );
 }
 
-// Toggle active status
+// Toggle active
 export function useToggleTestimonialActive() {
   if (!useSWRMutation) {
-    return {
-      trigger: () => Promise.reject(new Error('SWR not installed')),
-      isMutating: false,
-      error: null,
-      data: null,
-    };
+    return { trigger: () => Promise.reject(new Error('SWR not installed')), isMutating: false, error: null, data: null };
   }
-
   return useSWRMutation(
     'toggle-testimonial-active',
-    async (key: string, { arg }: { arg: number }) => {
-      const response = await api.patch(`${process.env.NEXT_PUBLIC_API_URL}/testimonials/${arg}/toggle-active`);
-      return response.data as ToggleResponse;
+    async (_key: string, { arg }: { arg: number }) => {
+      const res = await api.patch(`${BASE}/testimonials/${arg}/toggle-active`);
+      return res.data as ToggleResponse;
     }
   );
 }
 
-// Update testimonial position
+// Update position
 export function useUpdateTestimonialPosition() {
   if (!useSWRMutation) {
-    return {
-      trigger: () => Promise.reject(new Error('SWR not installed')),
-      isMutating: false,
-      error: null,
-      data: null,
-    };
+    return { trigger: () => Promise.reject(new Error('SWR not installed')), isMutating: false, error: null, data: null };
   }
-
   return useSWRMutation(
     'update-testimonial-position',
-    async (key: string, { arg }: { arg: { testimonialId: number, position: number } }) => {
-      const response = await api.patch(`${process.env.NEXT_PUBLIC_API_URL}/testimonials/${arg.testimonialId}/position`, {
-        position: arg.position
-      });
-      return response.data as PositionResponse;
+    async (_key: string, { arg }: { arg: { testimonialId: number; position: number } }) => {
+      const res = await api.patch(`${BASE}/testimonials/${arg.testimonialId}/position`, { position: arg.position });
+      return res.data as PositionResponse;
     }
   );
 }

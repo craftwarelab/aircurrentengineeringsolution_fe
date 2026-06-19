@@ -435,7 +435,27 @@ export default function AdminProducts() {
       setIsDialogOpen(false);
       resetForm();
     } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to save product');
+      const errorMessage = error?.response?.data?.message || 'Failed to save product';
+
+      if (editingProduct) {
+        // Show error in update progress dialog, then close after a short delay
+        setUpdateStatus(`Update failed: ${errorMessage}`);
+        setTimeout(() => {
+          setIsUpdateStatusOpen(false);
+          setUpdateStatus('');
+          setUpdateImageProgress({ current: 0, total: 0 });
+          toast.error(errorMessage);
+        }, 2000);
+      } else {
+        // Show error in creation progress dialog, then close after a short delay
+        setCreationStatus(`Creation failed: ${errorMessage}`);
+        setTimeout(() => {
+          setIsCreationStatusOpen(false);
+          setCreationStatus('');
+          setCurrentImageProgress({ current: 0, total: 0 });
+          toast.error(errorMessage);
+        }, 2000);
+      }
     }
   };
 
@@ -1087,8 +1107,14 @@ export default function AdminProducts() {
           </DialogHeader>
           <div className="py-6">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-600 text-center">{creationStatus}</p>
+              {creationStatus.toLowerCase().startsWith('creation failed') ? (
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="text-red-600 text-lg font-bold">✕</span>
+                </div>
+              ) : (
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              )}
+              <p className={`text-sm text-center ${creationStatus.toLowerCase().startsWith('creation failed') ? 'text-red-600 font-medium' : 'text-gray-600'}`}>{creationStatus}</p>
               
               {currentImageProgress.total > 0 && (
                 <div className="w-full">
@@ -1122,8 +1148,14 @@ export default function AdminProducts() {
           </DialogHeader>
           <div className="py-6">
             <div className="flex flex-col items-center justify-center space-y-4">
-              <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-              <p className="text-sm text-gray-600 text-center">{updateStatus}</p>
+              {updateStatus.toLowerCase().startsWith('update failed') ? (
+                <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                  <span className="text-red-600 text-lg font-bold">✕</span>
+                </div>
+              ) : (
+                <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+              )}
+              <p className={`text-sm text-center ${updateStatus.toLowerCase().startsWith('update failed') ? 'text-red-600 font-medium' : 'text-gray-600'}`}>{updateStatus}</p>
               
               {updateImageProgress.total > 0 && (
                 <div className="w-full">

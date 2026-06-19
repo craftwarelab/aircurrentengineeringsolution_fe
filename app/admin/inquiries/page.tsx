@@ -14,6 +14,7 @@ import { Eye, Mail, Phone, MapPin, Building2, Calendar, DollarSign, Search, Load
 import {
   useInquiries,
   useUpdateInquiryStatus,
+  useUpdateInquiry,
   useDeleteInquiry,
   type Inquiry,
 } from '@/lib/hooks/use-inquiries';
@@ -39,6 +40,7 @@ export default function AdminInquiries() {
 
   const { data: inquiries, isLoading, error, mutate } = useInquiries();
   const { trigger: updateStatus, isMutating: updatingStatus } = useUpdateInquiryStatus();
+  const { trigger: updateInquiry, isMutating: updatingInquiry } = useUpdateInquiry();
   const { trigger: deleteInquiry, isMutating: deletingInquiry } = useDeleteInquiry();
 
   const displayInquiries = useMemo(() => {
@@ -84,9 +86,9 @@ export default function AdminInquiries() {
   const handleSaveNotes = async () => {
     if (!selectedInquiry) return;
     try {
-      await updateStatus({
+      await updateInquiry({
         id: selectedInquiry.id,
-        data: { status: selectedInquiry.status, internal_notes: internalNotes },
+        data: { internal_notes: internalNotes },
       });
       mutate();
       setSelectedInquiry(null);
@@ -336,8 +338,8 @@ export default function AdminInquiries() {
 
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setSelectedInquiry(null)}>Close</Button>
-                <Button onClick={handleSaveNotes} disabled={updatingStatus}>
-                  {updatingStatus && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                <Button onClick={handleSaveNotes} disabled={updatingInquiry}>
+                  {updatingInquiry && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   Save Notes
                 </Button>
               </div>

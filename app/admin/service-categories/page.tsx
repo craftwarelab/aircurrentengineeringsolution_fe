@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import {
   useServiceCategories,
   useCreateServiceCategory,
@@ -22,8 +22,36 @@ import {
 } from '@/lib/hooks/use-service-categories';
 import { toast } from 'sonner';
 
+const PAGE_SIZE = 10;
+
+function Pagination({ page, total, onPage }: { page: number; total: number; onPage: (p: number) => void }) {
+  const last = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (last <= 1) return null;
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+  return (
+    <div className="flex items-center justify-between pt-4 border-t border-border">
+      <p className="text-sm text-muted-foreground">Showing <strong>{from}–{to}</strong> of <strong>{total}</strong></p>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="sm" onClick={() => onPage(1)} disabled={page === 1}><ChevronsLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => onPage(page - 1)} disabled={page === 1}><ChevronLeft className="h-4 w-4" /></Button>
+        {Array.from({ length: last }, (_, i) => i + 1)
+          .filter(p => p === 1 || p === last || Math.abs(p - page) <= 1)
+          .reduce<(number | 'e')[]>((acc, p, i, arr) => { if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('e'); acc.push(p); return acc; }, [])
+          .map((p, i) => p === 'e'
+            ? <span key={`e${i}`} className="px-1 text-muted-foreground text-sm">…</span>
+            : <Button key={p} variant={p === page ? 'default' : 'outline'} size="sm" className="w-8 h-8 p-0" onClick={() => onPage(p as number)}>{p}</Button>
+          )}
+        <Button variant="outline" size="sm" onClick={() => onPage(page + 1)} disabled={page === last}><ChevronRight className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => onPage(last)} disabled={page === last}><ChevronsRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ServiceCategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
+  const [page, setPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingCategory, setEditingCategory] = useState<ServiceCategory | null>(null);
 
@@ -46,17 +74,17 @@ export default function ServiceCategoriesPage() {
   const isLoading = categoriesLoading || (searchTerm.trim() && searchLoading);
 
   // Determine which data to display
-  const displayCategories = useMemo(() => {
-    let categories;
-    if (searchTerm.trim()) {
-      categories = searchResults;
-    } else {
-      categories = allCategories;
-    }
-
-    // Ensure we always return an array
-    return Array.isArray(categories) ? categories : [];
+  const filtered = useMemo(() => {
+    const list = searchTerm.trim() ? searchResults : allCategories;
+    return Array.isArray(list) ? list : [];
   }, [searchTerm, searchResults, allCategories]);
+
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
+  const handleSearchChange = (v: string) => { setSearchTerm(v); setPage(1); };
 
   const resetForm = () => {
     setFormData({
@@ -216,16 +244,13 @@ export default function ServiceCategoriesPage() {
 
       {/* Search */}
       <Card>
-        <CardHeader>
-          <CardTitle>Search Service Categories</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search by name or slug..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => handleSearchChange(e.target.value)}
               className="pl-10"
             />
           </div>
@@ -235,7 +260,7 @@ export default function ServiceCategoriesPage() {
       {/* Categories Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Service Categories ({displayCategories.length})</CardTitle>
+          <CardTitle>Service Categories ({filtered.length})</CardTitle>
           <CardDescription>Manage service categories</CardDescription>
         </CardHeader>
         <CardContent>
@@ -262,7 +287,7 @@ export default function ServiceCategoriesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayCategories.map((category) => (
+                  {paginated.map((category) => (
                     <TableRow key={category.id}>
                       <TableCell className="font-medium">{category.name}</TableCell>
                       <TableCell className="font-mono text-sm">{category.slug}</TableCell>
@@ -297,11 +322,12 @@ export default function ServiceCategoriesPage() {
                   ))}
                 </TableBody>
               </Table>
-              {displayCategories.length === 0 && (
+              {paginated.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No service categories found matching the search term.
+                  {searchTerm.trim() ? 'No categories match your search.' : 'No service categories found.'}
                 </div>
               )}
+              <Pagination page={page} total={filtered.length} onPage={setPage} />
             </>
           )}
         </CardContent>

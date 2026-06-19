@@ -1,16 +1,20 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search, Loader2, Eye, EyeOff } from 'lucide-react';
+import {
+  Plus, Edit, Trash2, Search, Loader2, Eye, EyeOff,
+  ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
+} from 'lucide-react';
 import {
   useFAQs,
   useCreateFAQ,
@@ -19,277 +23,348 @@ import {
   useToggleFAQActive,
   usePublishFAQ,
   useUnpublishFAQ,
-  useUpdateFAQPriority,
   type FAQ,
   type CreateFAQRequest,
-  type UpdateFAQRequest
+  type UpdateFAQRequest,
 } from '@/lib/hooks/use-faqs';
 import { toast } from 'sonner';
 
-export default function FAQsPage() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
-  const [editingFAQ, setEditingFAQ] = useState<FAQ | null>(null);
+const PAGE_SIZE = 10;
 
-  const [formData, setFormData] = useState<CreateFAQRequest>({
-    question: '',
-    answer: '',
-    priority: 0,
-    is_active: true,
-    status: 'draft',
-    slug: '',
-  });
+const EMPTY_FORM: CreateFAQRequest = {
+  question: '',
+  answer: '',
+  priority: 0,
+  is_active: true,
+  status: 'draft',
+  slug: '',
+};
 
-  // SWR hooks
-  const { data: allFAQs, error: faqsError, isLoading: faqsLoading, mutate: mutateFAQs } = useFAQs();
+function generateSlug(question: string): string {
+  return question
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .substring(0, 50);
+}
 
-  // API mutation hooks
-  const { trigger: createFAQ, isMutating: creatingFAQ } = useCreateFAQ();
-  const { trigger: updateFAQ, isMutating: updatingFAQ } = useUpdateFAQ();
-  const { trigger: deleteFAQ, isMutating: deletingFAQ } = useDeleteFAQ();
-  const { trigger: toggleActive, isMutating: togglingActive } = useToggleFAQActive();
-  const { trigger: publishFAQ, isMutating: publishingFAQ } = usePublishFAQ();
-  const { trigger: unpublishFAQ, isMutating: unpublishingFAQ } = useUnpublishFAQ();
-  const { trigger: updatePriority, isMutating: updatingPriority } = useUpdateFAQPriority();
+function statusBadgeVariant(status: FAQ['status']): 'default' | 'secondary' | 'outline' {
+  if (status === 'active')   return 'default';
+  if (status === 'inactive') return 'secondary';
+  return 'outline';
+}
 
-  const isLoading = faqsLoading;
+// ─── Pagination controls ──────────────────────────────────────────────────────
+function Pagination({
+  page, lastPage, total, limit,
+  onPage,
+}: {
+  page: number; lastPage: number; total: number; limit: number;
+  onPage: (p: number) => void;
+}) {
+  if (lastPage <= 1) return null;
+  const from = (page - 1) * limit + 1;
+  const to   = Math.min(page * limit, total);
 
-  // Determine which data to display
-  const displayFAQs = useMemo(() => {
-    let faqs;
-    if (searchTerm.trim()) {
-      // Client-side search since no search API for FAQs
-      faqs = allFAQs?.filter(faq =>
-        faq.question.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        faq.answer.toLowerCase().includes(searchTerm.toLowerCase())
-      ) || [];
-    } else {
-      faqs = allFAQs || [];
-    }
+  return (
+    <div className="flex items-center justify-between pt-4 border-t border-border">
+      <p className="text-sm text-muted-foreground">
+        Showing <strong>{from}–{to}</strong> of <strong>{total}</strong> FAQs
+      </p>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="sm" onClick={() => onPage(1)}        disabled={page === 1}>
+          <ChevronsLeft className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => onPage(page - 1)} disabled={page === 1}>
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
 
-    // Ensure we always return an array
-    return Array.isArray(faqs) ? faqs : [];
-  }, [searchTerm, allFAQs]);
+        {/* Page number pills */}
+        {Array.from({ length: lastPage }, (_, i) => i + 1)
+          .filter((p) => p === 1 || p === lastPage || Math.abs(p - page) <= 1)
+          .reduce<(number | 'ellipsis')[]>((acc, p, idx, arr) => {
+            if (idx > 0 && p - (arr[idx - 1] as number) > 1) acc.push('ellipsis');
+            acc.push(p);
+            return acc;
+          }, [])
+          .map((p, idx) =>
+            p === 'ellipsis' ? (
+              <span key={`e${idx}`} className="px-1 text-muted-foreground text-sm">…</span>
+            ) : (
+              <Button
+                key={p}
+                variant={p === page ? 'default' : 'outline'}
+                size="sm"
+                className="w-8 h-8 p-0"
+                onClick={() => onPage(p as number)}
+              >
+                {p}
+              </Button>
+            )
+          )}
 
-  const resetForm = () => {
-    setFormData({
-      question: '',
-      answer: '',
-      priority: (allFAQs?.length || 0) + 1,
-      is_active: true,
-      status: 'draft',
-      slug: '',
-    });
-  };
+        <Button variant="outline" size="sm" onClick={() => onPage(page + 1)} disabled={page === lastPage}>
+          <ChevronRight className="h-4 w-4" />
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => onPage(lastPage)}  disabled={page === lastPage}>
+          <ChevronsRight className="h-4 w-4" />
+        </Button>
+      </div>
+    </div>
+  );
+}
 
-  const generateSlug = (question: string) => {
-    return question
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '')
-      .substring(0, 50); // Limit slug length
-  };
-
-  const handleQuestionChange = (question: string) => {
-    setFormData({
-      ...formData,
-      question,
-      slug: generateSlug(question),
-    });
-  };
-
-  const handleAddFAQ = async () => {
-    try {
-      await createFAQ({ url: `${process.env.NEXT_PUBLIC_API_URL}/faqs/`, data: formData });
-      mutateFAQs(); // Refresh the FAQs list
-      setIsAddDialogOpen(false);
-      resetForm();
-      toast.success('FAQ added successfully');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to add FAQ');
-    }
-  };
-
-  const handleEditFAQ = (faq: FAQ) => {
-    setEditingFAQ(faq);
-    setFormData({
-      question: faq.question,
-      answer: faq.answer,
-      priority: faq.priority,
-      is_active: faq.is_active,
-      status: faq.status,
-      slug: faq.slug || '',
-    });
-  };
-
-  const handleUpdateFAQ = async () => {
-    if (!editingFAQ) return;
-
-    try {
-      await updateFAQ({ faqId: editingFAQ.id, data: formData as UpdateFAQRequest });
-      mutateFAQs(); // Refresh the FAQs list
-      setEditingFAQ(null);
-      resetForm();
-      toast.success('FAQ updated successfully');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to update FAQ');
-    }
-  };
-
-  const handleDeleteFAQ = async (faqId: number) => {
-    if (confirm('Are you sure you want to delete this FAQ?')) {
-      try {
-        await deleteFAQ(faqId.toString());
-        mutateFAQs(); // Refresh the FAQs list
-        toast.success('FAQ deleted successfully');
-      } catch (error: any) {
-        toast.error(error?.response?.data?.message || 'Failed to delete FAQ');
-      }
-    }
-  };
-
-  const handleToggleStatus = async (faqId: number) => {
-    try {
-      await toggleActive(faqId);
-      mutateFAQs(); // Refresh the FAQs list
-      toast.success('FAQ status toggled successfully');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to toggle FAQ status');
-    }
-  };
-
-  const getStatusBadgeVariant = (status: FAQ['status']) => {
-    switch (status) {
-      case 'active':
-        return 'default';
-      case 'inactive':
-        return 'secondary';
-      default:
-        return 'outline';
-    }
-  };
-
-  const handlePublishFAQ = async (faqId: number) => {
-    try {
-      await publishFAQ(faqId);
-      mutateFAQs(); // Refresh the FAQs list
-      toast.success('FAQ published successfully');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to publish FAQ');
-    }
-  };
-
-  const handleUnpublishFAQ = async (faqId: number) => {
-    try {
-      await unpublishFAQ(faqId);
-      mutateFAQs(); // Refresh the FAQs list
-      toast.success('FAQ unpublished successfully');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to unpublish FAQ');
-    }
-  };
-
-  const handleUpdatePriority = async (faqId: number, priority: number) => {
-    try {
-      await updatePriority({ faqId, priority });
-      mutateFAQs(); // Refresh the FAQs list
-      toast.success('FAQ priority updated successfully');
-    } catch (error: any) {
-      toast.error(error?.response?.data?.message || 'Failed to update FAQ priority');
-    }
+// ─── FAQ form (shared between add/edit dialogs) ───────────────────────────────
+function FAQForm({
+  formData,
+  setFormData,
+}: {
+  formData: CreateFAQRequest;
+  setFormData: (d: CreateFAQRequest) => void;
+}) {
+  const handleQuestionChange = (q: string) => {
+    setFormData({ ...formData, question: q, slug: generateSlug(q) });
   };
 
   return (
+    <div className="space-y-4">
+      <div>
+        <Label htmlFor="faq_question">Question *</Label>
+        <Input
+          id="faq_question"
+          value={formData.question}
+          onChange={(e) => handleQuestionChange(e.target.value)}
+          placeholder="Enter the question"
+        />
+      </div>
+      <div>
+        <Label htmlFor="faq_answer">Answer *</Label>
+        <Textarea
+          id="faq_answer"
+          value={formData.answer}
+          onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
+          placeholder="Enter the answer"
+          rows={5}
+        />
+      </div>
+      <div className="grid grid-cols-3 gap-4">
+        <div>
+          <Label htmlFor="faq_priority">Priority</Label>
+          <Input
+            id="faq_priority"
+            type="number"
+            min={0}
+            value={formData.priority}
+            onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
+          />
+          <p className="text-xs text-muted-foreground mt-1">Lower = shown first</p>
+        </div>
+        <div>
+          <Label htmlFor="faq_status">Status</Label>
+          <Select
+            value={formData.status}
+            onValueChange={(v) => setFormData({ ...formData, status: v as FAQ['status'] })}
+          >
+            <SelectTrigger id="faq_status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="active">Active</SelectItem>
+              <SelectItem value="inactive">Inactive</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="faq_slug">Slug</Label>
+          <Input
+            id="faq_slug"
+            value={formData.slug}
+            onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
+            placeholder="auto-generated"
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-2">
+        <Switch
+          id="faq_active"
+          checked={formData.is_active}
+          onCheckedChange={(c) => setFormData({ ...formData, is_active: c })}
+        />
+        <Label htmlFor="faq_active">Active</Label>
+      </div>
+    </div>
+  );
+}
+
+// ─── Page ─────────────────────────────────────────────────────────────────────
+export default function FAQsPage() {
+  // Filters & pagination — all server-side
+  const [page,         setPage]        = useState(1);
+  const [searchTerm,   setSearchTerm]  = useState('');
+  const [searchInput,  setSearchInput] = useState('');  // debounced separately
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+
+  // Dialogs
+  const [isAddOpen,    setIsAddOpen]   = useState(false);
+  const [editingFAQ,   setEditingFAQ]  = useState<FAQ | null>(null);
+
+  // Delete confirmation dialog
+  const [faqToDelete,       setFaqToDelete]       = useState<FAQ | null>(null);
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  // Form
+  const [formData, setFormData] = useState<CreateFAQRequest>(EMPTY_FORM);
+
+  // ── Data ──────────────────────────────────────────────────────────────────
+  const { data: paged, error, isLoading, mutate } = useFAQs(
+    page,
+    PAGE_SIZE,
+    {
+      status:  statusFilter !== 'all' ? statusFilter : undefined,
+      search:  searchTerm || undefined,
+    }
+  );
+
+  const faqs     = paged?.data     ?? [];
+  const total    = paged?.total    ?? 0;
+  const lastPage = paged?.last_page ?? 1;
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const { trigger: createFAQ,   isMutating: creating   } = useCreateFAQ();
+  const { trigger: updateFAQ,   isMutating: updating   } = useUpdateFAQ();
+  const { trigger: deleteFAQ,   isMutating: deleting   } = useDeleteFAQ();
+  const { trigger: toggleActive                         } = useToggleFAQActive();
+  const { trigger: publishFAQ,  isMutating: publishing } = usePublishFAQ();
+  const { trigger: unpublishFAQ                         } = useUnpublishFAQ();
+
+  // ── Helpers ───────────────────────────────────────────────────────────────
+  const resetForm = () => setFormData(EMPTY_FORM);
+
+  const goToPage = (p: number) => setPage(Math.max(1, Math.min(p, lastPage)));
+
+  // Server search fires on Enter or after debounce
+  const commitSearch = useCallback((value: string) => {
+    setSearchTerm(value);
+    setPage(1);
+  }, []);
+
+  const handleStatusFilterChange = (value: string) => {
+    setStatusFilter(value);
+    setPage(1);
+  };
+
+  // ── CRUD handlers ──────────────────────────────────────────────────────────
+  const handleAdd = async () => {
+    try {
+      await createFAQ({ url: `${process.env.NEXT_PUBLIC_API_URL}/faqs/`, data: formData });
+      mutate();
+      setIsAddOpen(false);
+      resetForm();
+      toast.success('FAQ added successfully');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to add FAQ');
+    }
+  };
+
+  const handleUpdate = async () => {
+    if (!editingFAQ) return;
+    try {
+      await updateFAQ({ faqId: editingFAQ.id, data: formData as UpdateFAQRequest });
+      mutate();
+      setEditingFAQ(null);
+      resetForm();
+      toast.success('FAQ updated successfully');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to update FAQ');
+    }
+  };
+
+  const handleDelete = (faq: FAQ) => {
+    setFaqToDelete(faq);
+    setDeleteConfirmText('');
+  };
+
+  const confirmDelete = async () => {
+    if (!faqToDelete || deleteConfirmText.toLowerCase() !== 'delete') return;
+    try {
+      await deleteFAQ(String(faqToDelete.id));
+      setFaqToDelete(null);
+      setDeleteConfirmText('');
+      // If deleting last item on page > 1, go back one page
+      if (faqs.length === 1 && page > 1) setPage((p) => p - 1);
+      else mutate();
+      toast.success('FAQ deleted');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to delete FAQ');
+    }
+  };
+
+  const handleToggle = async (id: number) => {
+    try {
+      await toggleActive(id);
+      mutate();
+      toast.success('Status toggled');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to toggle status');
+    }
+  };
+
+  const handlePublish = async (id: number) => {
+    try {
+      await publishFAQ(id);
+      mutate();
+      toast.success('FAQ published');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to publish FAQ');
+    }
+  };
+
+  const handleUnpublish = async (id: number) => {
+    try {
+      await unpublishFAQ(id);
+      mutate();
+      toast.success('FAQ unpublished');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to unpublish FAQ');
+    }
+  };
+
+  const openEdit = (faq: FAQ) => {
+    setEditingFAQ(faq);
+    setFormData({
+      question: faq.question,
+      answer:   faq.answer,
+      priority: faq.priority,
+      is_active: faq.is_active,
+      status:   faq.status,
+      slug:     faq.slug || '',
+    });
+  };
+
+  // ── Render ────────────────────────────────────────────────────────────────
+  return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">FAQs</h1>
-          <p className="mt-2 text-gray-600">Manage frequently asked questions</p>
+          <p className="mt-1 text-gray-600">Manage frequently asked questions</p>
         </div>
-        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+        <Dialog open={isAddOpen} onOpenChange={setIsAddOpen}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Add FAQ
+            <Button onClick={resetForm}>
+              <Plus className="h-4 w-4 mr-2" /> Add FAQ
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>Add New FAQ</DialogTitle>
-              <DialogDescription>
-                Add a new frequently asked question and answer.
-              </DialogDescription>
+              <DialogDescription>Create a new frequently asked question.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="question">Question *</Label>
-                <Input
-                  id="question"
-                  value={formData.question}
-                  onChange={(e) => handleQuestionChange(e.target.value)}
-                  placeholder="Enter the question"
-                />
-              </div>
-              <div>
-                <Label htmlFor="answer">Answer *</Label>
-                <Textarea
-                  id="answer"
-                  value={formData.answer}
-                  onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-                  placeholder="Enter the answer"
-                  rows={6}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <Label htmlFor="priority">Priority</Label>
-                  <Input
-                    id="priority"
-                    type="number"
-                    value={formData.priority}
-                    onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-                    placeholder="0"
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Higher numbers appear first</p>
-                </div>
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <select
-                    id="status"
-                    value={formData.status}
-                    onChange={(e) => setFormData({ ...formData, status: e.target.value as FAQ['status'] })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="draft">Draft</option>
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
-                </div>
-                <div>
-                  <Label htmlFor="slug">Slug</Label>
-                  <Input
-                    id="slug"
-                    value={formData.slug}
-                    onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                    placeholder="auto-generated-slug"
-                  />
-                </div>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="is_active"
-                  checked={formData.is_active}
-                  onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-                />
-                <Label htmlFor="is_active">Active</Label>
-              </div>
-            </div>
+            <FAQForm formData={formData} setFormData={setFormData} />
             <div className="flex justify-end gap-2 mt-4">
-              <Button variant="outline" onClick={() => { setIsAddDialogOpen(false); resetForm(); }}>
-                Cancel
-              </Button>
-              <Button onClick={handleAddFAQ} disabled={creatingFAQ}>
-                {creatingFAQ && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              <Button variant="outline" onClick={() => { setIsAddOpen(false); resetForm(); }}>Cancel</Button>
+              <Button onClick={handleAdd} disabled={creating}>
+                {creating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                 Add FAQ
               </Button>
             </div>
@@ -297,119 +372,128 @@ export default function FAQsPage() {
         </Dialog>
       </div>
 
-      {/* Search */}
+      {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Search FAQs</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="relative">
-            <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
-            <Input
-              placeholder="Search by question or answer..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+        <CardContent className="pt-5">
+          <div className="flex flex-col sm:flex-row gap-3">
+            {/* Search */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
+              <Input
+                placeholder="Search question or answer..."
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                onKeyDown={(e) => { if (e.key === 'Enter') commitSearch(searchInput); }}
+                onBlur={() => commitSearch(searchInput)}
+                className="pl-10"
+              />
+            </div>
+
+            {/* Status filter */}
+            <Select value={statusFilter} onValueChange={handleStatusFilterChange}>
+              <SelectTrigger className="w-44">
+                <SelectValue placeholder="All statuses" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All statuses</SelectItem>
+                <SelectItem value="active">Active</SelectItem>
+                <SelectItem value="inactive">Inactive</SelectItem>
+                <SelectItem value="draft">Draft</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* FAQs Table */}
+      {/* Table */}
       <Card>
         <CardHeader>
-          <CardTitle>FAQs ({displayFAQs.length})</CardTitle>
-          <CardDescription>Manage frequently asked questions</CardDescription>
+          <CardTitle>FAQs {total > 0 && `(${total})`}</CardTitle>
+          <CardDescription>
+            Page {page} of {lastPage}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center py-8">
+            <div className="flex items-center justify-center py-10">
               <Loader2 className="h-6 w-6 animate-spin mr-2" />
-              <span>Loading FAQs...</span>
+              <span>Loading FAQs…</span>
             </div>
-          ) : faqsError ? (
-            <div className="text-center py-8 text-red-500">
-              Error loading FAQs: {faqsError.message}
+          ) : error ? (
+            <div className="text-center py-10 text-red-500">
+              Error loading FAQs: {error.message}
             </div>
           ) : (
             <>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Question</TableHead>
-                    <TableHead>Answer</TableHead>
-                    <TableHead>Priority</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-[35%]">Question</TableHead>
+                    <TableHead className="w-[30%]">Answer</TableHead>
+                    <TableHead className="w-[8%]">Priority</TableHead>
+                    <TableHead className="w-[12%]">Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displayFAQs.map((faq) => (
+                  {faqs.map((faq) => (
                     <TableRow key={faq.id}>
-                      <TableCell className="font-medium max-w-xs truncate">
-                        {faq.question}
+                      <TableCell className="font-medium max-w-xs">
+                        <p className="truncate">{faq.question}</p>
                       </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {faq.answer}
+                      <TableCell className="max-w-xs">
+                        <p className="truncate text-muted-foreground text-sm">{faq.answer}</p>
                       </TableCell>
-                      <TableCell>{faq.priority}</TableCell>
+                      <TableCell className="text-center">{faq.priority}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={getStatusBadgeVariant(faq.status)}>
+                        <div className="flex items-center gap-1.5">
+                          <Badge variant={statusBadgeVariant(faq.status)} className="capitalize">
                             {faq.status}
                           </Badge>
-                          {faq.is_active ? (
-                            <Eye className="h-4 w-4 text-green-600" />
-                          ) : (
-                            <EyeOff className="h-4 w-4 text-gray-400" />
-                          )}
+                          {faq.is_active
+                            ? <Eye className="h-3.5 w-3.5 text-green-600" />
+                            : <EyeOff className="h-3.5 w-3.5 text-gray-400" />
+                          }
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleEditFAQ(faq)}
-                            disabled={updatingFAQ}
-                          >
+                        <div className="flex justify-end gap-1">
+                          <Button variant="outline" size="sm" onClick={() => openEdit(faq)}>
                             <Edit className="h-4 w-4" />
                           </Button>
-                          {faq.status === 'draft' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePublishFAQ(faq.id)}
-                              disabled={publishingFAQ}
-                            >
+
+                          {/* Publish / Unpublish */}
+                          {faq.status !== 'active' && (
+                            <Button variant="outline" size="sm" onClick={() => handlePublish(faq.id)} disabled={publishing} title="Publish">
                               <Eye className="h-4 w-4" />
                             </Button>
                           )}
                           {faq.status === 'active' && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUnpublishFAQ(faq.id)}
-                              disabled={unpublishingFAQ}
-                            >
+                            <Button variant="outline" size="sm" onClick={() => handleUnpublish(faq.id)} title="Unpublish">
                               <EyeOff className="h-4 w-4" />
                             </Button>
                           )}
+
+                          {/* Toggle active */}
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleToggleStatus(faq.id)}
-                            disabled={togglingActive}
+                            onClick={() => handleToggle(faq.id)}
+                            title={faq.is_active ? 'Deactivate' : 'Activate'}
                           >
-                            {faq.is_active ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                            {faq.is_active
+                              ? <EyeOff className="h-4 w-4 text-orange-500" />
+                              : <Eye className="h-4 w-4 text-green-600" />
+                            }
                           </Button>
+
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteFAQ(faq.id)}
-                            disabled={deletingFAQ}
+                            onClick={() => handleDelete(faq)}
+                            disabled={deleting}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-4 w-4 text-red-500" />
                           </Button>
                         </div>
                       </TableCell>
@@ -417,93 +501,92 @@ export default function FAQsPage() {
                   ))}
                 </TableBody>
               </Table>
-              {displayFAQs.length === 0 && (
-                <div className="text-center py-8 text-gray-500">
-                  No FAQs found matching the search term.
+
+              {faqs.length === 0 && (
+                <div className="text-center py-10 text-gray-500">
+                  {searchTerm || statusFilter !== 'all'
+                    ? 'No FAQs match your filters.'
+                    : 'No FAQs yet. Click "Add FAQ" to create one.'}
                 </div>
               )}
+
+              {/* Pagination */}
+              <Pagination
+                page={page}
+                lastPage={lastPage}
+                total={total}
+                limit={PAGE_SIZE}
+                onPage={goToPage}
+              />
             </>
           )}
         </CardContent>
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={!!editingFAQ} onOpenChange={(open) => !open && setEditingFAQ(null)}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <Dialog open={!!editingFAQ} onOpenChange={(open) => { if (!open) { setEditingFAQ(null); resetForm(); } }}>
+        <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit FAQ</DialogTitle>
-            <DialogDescription>
-              Update FAQ details.
-            </DialogDescription>
+            <DialogDescription>Update the FAQ details.</DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="edit_question">Question *</Label>
-              <Input
-                id="edit_question"
-                value={formData.question}
-                onChange={(e) => handleQuestionChange(e.target.value)}
-              />
-            </div>
-            <div>
-              <Label htmlFor="edit_answer">Answer *</Label>
-              <Textarea
-                id="edit_answer"
-                value={formData.answer}
-                onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
-                rows={6}
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="edit_priority">Priority</Label>
-                <Input
-                  id="edit_priority"
-                  type="number"
-                  value={formData.priority}
-                  onChange={(e) => setFormData({ ...formData, priority: parseInt(e.target.value) || 0 })}
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit_status">Status</Label>
-                <select
-                  id="edit_status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as FAQ['status'] })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="draft">Draft</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="edit_slug">Slug</Label>
-                <Input
-                  id="edit_slug"
-                  value={formData.slug}
-                  onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                />
-              </div>
-            </div>
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="edit_is_active"
-                checked={formData.is_active}
-                onCheckedChange={(checked) => setFormData({ ...formData, is_active: checked })}
-              />
-              <Label htmlFor="edit_is_active">Active</Label>
-            </div>
-          </div>
+          <FAQForm formData={formData} setFormData={setFormData} />
           <div className="flex justify-end gap-2 mt-4">
-            <Button variant="outline" onClick={() => { setEditingFAQ(null); resetForm(); }}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdateFAQ} disabled={updatingFAQ}>
-              {updatingFAQ && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+            <Button variant="outline" onClick={() => { setEditingFAQ(null); resetForm(); }}>Cancel</Button>
+            <Button onClick={handleUpdate} disabled={updating}>
+              {updating && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Update FAQ
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={!!faqToDelete}
+        onOpenChange={(open) => { if (!open) { setFaqToDelete(null); setDeleteConfirmText(''); } }}
+      >
+        <DialogContent className="sm:max-w-[400px]">
+          <DialogHeader>
+            <DialogTitle>Delete FAQ</DialogTitle>
+            <DialogDescription>
+              This action cannot be undone. The FAQ will be permanently removed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-4">
+            {faqToDelete && (
+              <p className="text-sm text-gray-600 bg-muted/50 rounded-md px-3 py-2 line-clamp-2">
+                "{faqToDelete.question}"
+              </p>
+            )}
+            <p className="text-sm text-gray-600">
+              To confirm deletion, please type <strong>delete</strong> below:
+            </p>
+            <Input
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') confirmDelete(); }}
+              placeholder='Type "delete" here'
+              className="font-mono"
+              autoFocus
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => { setFaqToDelete(null); setDeleteConfirmText(''); }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={deleteConfirmText.toLowerCase() !== 'delete' || deleting}
+            >
+              {deleting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Delete FAQ
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

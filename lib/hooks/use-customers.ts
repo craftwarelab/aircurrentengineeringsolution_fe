@@ -36,12 +36,14 @@ export function useCustomers(page = 1, limit = 10, search?: string, is_active?: 
   if (search) params.append('search', search);
   if (is_active !== undefined) params.append('is_active', String(is_active));
   if (is_featured !== undefined) params.append('is_featured', String(is_featured));
-  // Use a custom fetcher to preserve the full pagination response
-  // (the global SWR fetcher strips the wrapper and loses total/last_page)
   return useApiGet<CustomersListResponse>(
     `${process.env.NEXT_PUBLIC_API_URL}/customers?${params}`,
     {
       fetcher: (url: string) => api.get(url).then((res: any) => res.data),
+      // Prevent SWR from auto-revalidating on focus — that re-sorts the list
+      // and causes rows to jump after toggle-active / toggle-featured operations
+      revalidateOnFocus: false,
+      revalidateOnReconnect: false,
     }
   );
 }

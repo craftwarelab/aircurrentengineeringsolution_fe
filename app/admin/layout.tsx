@@ -84,6 +84,8 @@ export default function AdminLayout({
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
+    if (pathname === '/admin/forgot-password') return;
+    if (pathname === '/admin/reset-password') return;
     if (authChecked) return;
 
     const verifyAuth = async () => {
@@ -114,8 +116,8 @@ export default function AdminLayout({
     }
   }, [pathname, authChecked, hasUserInteracted, router, isAuthenticated, restoring, refresh]);
 
-  // For login page, render without admin layout
-  if (pathname === '/admin/login') {
+  // For login/forgot-password/reset-password pages, render without admin layout
+  if (pathname === '/admin/login' || pathname === '/admin/forgot-password' || pathname === '/admin/reset-password') {
     return <>{children}</>;
   }
 

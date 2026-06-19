@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { ArrowRight, ChevronLeft, ChevronRight, Shield, Users, Award, MapPin, Phone, Mail, CheckCircle } from 'lucide-react';
@@ -405,7 +405,269 @@ function ProjectsStrip() {
   );
 }
 
-// ─── Featured Products Ring ──────────────────────────────────────────────────
+// ─── Featured Services — fade 2 at a time ────────────────────────────────────
+function FeaturedServicesSection() {
+  const { data: res } = useServices(1, 50, 'active');
+  const raw = res as any;
+  const allServices: any[] = (raw?.data?.data || raw?.data || []).filter((s: any) => s.is_featured);
+
+  const PER_PAGE = 2;
+  const HOLD_MS  = 4000;
+  const FADE_MS  = 500;
+
+  const totalPages = allServices.length > 0
+    ? Math.ceil(allServices.length / PER_PAGE)
+    : 0;
+
+  const [page,     setPage]     = useState(0);
+  const [visible,  setVisible]  = useState(true);
+  const [selected, setSelected] = useState<any | null>(null);
+
+  // All mutable cycle state lives in a ref — never causes effect re-runs
+  const cycleRef = useRef({
+    page: 0,
+    paused: false,
+    totalPages: 0,
+    running: false,
+  });
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Keep ref in sync with latest totalPages without re-running the effect
+  cycleRef.current.totalPages = totalPages;
+
+  // Single effect — starts cycle once data arrives, never restarts
+  useEffect(() => {
+    if (totalPages < 2) return;
+    if (cycleRef.current.running) return; // guard against StrictMode double-invoke
+    cycleRef.current.running = true;
+    cycleRef.current.page    = 0;
+    setPage(0);
+    setVisible(true);
+
+    const runCycle = () => {
+      // Respect pause — poll every 500 ms while paused
+      if (cycleRef.current.paused) {
+        timerRef.current = setTimeout(runCycle, 500);
+        return;
+      }
+
+      // Fade out
+      setVisible(false);
+
+      timerRef.current = setTimeout(() => {
+        // Advance page while invisible
+        cycleRef.current.page = (cycleRef.current.page + 1) % cycleRef.current.totalPages;
+        setPage(cycleRef.current.page);
+
+        // Fade in
+        setVisible(true);
+
+        // Hold, then next cycle
+        timerRef.current = setTimeout(runCycle, HOLD_MS);
+      }, FADE_MS);
+    };
+
+    timerRef.current = setTimeout(runCycle, HOLD_MS);
+
+    return () => {
+      cycleRef.current.running = false;
+      if (timerRef.current) clearTimeout(timerRef.current);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [totalPages >= 2]); // only fires when crossing the threshold
+
+  const jumpToPage = (i: number) => {
+    if (timerRef.current) clearTimeout(timerRef.current);
+    setVisible(false);
+    timerRef.current = setTimeout(() => {
+      cycleRef.current.page = i;
+      setPage(i);
+      setVisible(true);
+      timerRef.current = setTimeout(() => {
+        const runCycle = () => {
+          if (cycleRef.current.paused) { timerRef.current = setTimeout(runCycle, 500); return; }
+          setVisible(false);
+          timerRef.current = setTimeout(() => {
+            cycleRef.current.page = (cycleRef.current.page + 1) % cycleRef.current.totalPages;
+            setPage(cycleRef.current.page);
+            setVisible(true);
+            timerRef.current = setTimeout(runCycle, HOLD_MS);
+          }, FADE_MS);
+        };
+        timerRef.current = setTimeout(runCycle, HOLD_MS);
+      }, FADE_MS);
+    }, FADE_MS);
+  };
+
+  if (!allServices.length) return null;
+
+  const visiblePair    = allServices.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
+  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
+
+  return (
+    <section className="py-14 bg-background">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+
+        {/* Header */}
+        <div className="flex items-end justify-between mb-10">
+          <div>
+            <p className="text-accent font-semibold text-xs uppercase tracking-widest mb-1">What We Offer</p>
+            <h2 className="text-3xl font-bold text-foreground">Featured Services</h2>
+          </div>
+          <Link
+            href="/services"
+            className="hidden sm:inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors"
+          >
+            View All Services <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+
+        {/* Cards — single opacity transition on the grid wrapper */}
+        <div
+          className="grid grid-cols-1 sm:grid-cols-2 gap-6"
+          style={{ opacity: visible ? 1 : 0, transition: `opacity ${FADE_MS}ms ease` }}
+          onMouseEnter={() => { cycleRef.current.paused = true; }}
+          onMouseLeave={() => { cycleRef.current.paused = false; }}
+        >
+          {[0, 1].map((slot) => {
+            const s = visiblePair[slot];
+            if (!s) return <div key={`empty-${slot}`} className="hidden sm:block" />;
+            const mainImg = s.images?.find((img: any) => img.is_main)?.url || s.images?.[0]?.url;
+
+            return (
+              <button
+                key={s.id}
+                onClick={() => setSelected(s)}
+                className="group flex flex-col overflow-hidden rounded-2xl border border-border bg-card hover:shadow-xl hover:border-primary/40 transition-shadow duration-300 cursor-pointer text-left w-full"
+              >
+                <div className="relative w-full overflow-hidden" style={{ height: 240 }}>
+                  {mainImg ? (
+                    <img
+                      src={`${cloudinaryBase}${mainImg}`}
+                      alt={s.name}
+                      className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-primary/10 to-accent/10">
+                      <span className="text-6xl font-black text-primary/20">{s.name?.[0]}</span>
+                    </div>
+                  )}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+                  <span className="absolute top-3 left-3 text-[10px] px-2.5 py-1 bg-accent text-accent-foreground rounded-full font-semibold tracking-wide">
+                    Featured
+                  </span>
+                </div>
+                <div className="flex-1 px-6 py-5 flex flex-col gap-2">
+                  <h3 className="text-lg font-bold text-foreground group-hover:text-primary transition-colors line-clamp-2">
+                    {s.name}
+                  </h3>
+                  {s.short_description && (
+                    <p className="text-sm text-muted-foreground line-clamp-3 leading-relaxed">{s.short_description}</p>
+                  )}
+                  {s.categories?.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-1">
+                      {s.categories.slice(0, 3).map((c: any) => (
+                        <span key={c.id} className="text-xs px-2 py-0.5 bg-accent/10 text-accent rounded-full">{c.name}</span>
+                      ))}
+                    </div>
+                  )}
+                  <span className="mt-auto pt-3 inline-flex items-center gap-1 text-sm font-medium text-primary">
+                    Learn more <ArrowRight className="w-3.5 h-3.5" />
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Dot indicators */}
+        {totalPages > 1 && (
+          <div className="flex justify-center gap-2 mt-8">
+            {Array.from({ length: totalPages }).map((_, i) => (
+              <button
+                key={i}
+                onClick={() => jumpToPage(i)}
+                className={`h-2 rounded-full transition-all duration-300 ${i === page ? 'w-6 bg-primary' : 'w-2 bg-border hover:bg-primary/40'}`}
+                aria-label={`Go to service pair ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
+
+        <div className="mt-8 text-center sm:hidden">
+          <Link
+            href="/services"
+            className="inline-flex items-center gap-2 px-5 py-2.5 border border-border rounded-xl text-sm font-medium hover:bg-muted transition-colors"
+          >
+            View All Services <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+      </div>
+
+      {/* Service detail dialog */}
+      {selected && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setSelected(null)}
+        >
+          <div
+            className="bg-background rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {(() => {
+              const mainImg = selected.images?.find((img: any) => img.is_main)?.url || selected.images?.[0]?.url;
+              return mainImg ? (
+                <div className="relative w-full h-64 bg-gray-100 overflow-hidden rounded-t-2xl">
+                  <img src={`${cloudinaryBase}${mainImg}`} alt={selected.name} className="absolute inset-0 w-full h-full object-cover" />
+                </div>
+              ) : null;
+            })()}
+            <div className="p-6">
+              <nav aria-label="breadcrumb" className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
+                <a href="/" className="hover:text-foreground transition-colors">Home</a>
+                <span>/</span>
+                <a href="/services" className="hover:text-foreground transition-colors">Services</a>
+                {selected.slug && (<><span>/</span><a href={`/services/${selected.slug}`} className="hover:text-foreground transition-colors text-foreground font-medium">{selected.name}</a></>)}
+              </nav>
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                <span className="text-xs px-2.5 py-0.5 bg-accent text-accent-foreground rounded-full">Featured</span>
+                {selected.categories?.map((c: any) => (
+                  <span key={c.id} className="text-xs px-2.5 py-0.5 bg-accent/10 text-accent rounded-full">{c.name}</span>
+                ))}
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-3">{selected.name}</h2>
+              {(selected.short_description || selected.description) && (
+                <p className="text-muted-foreground text-sm leading-relaxed mb-5">{selected.short_description || selected.description}</p>
+              )}
+              {selected.tags?.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 mb-5">
+                  {selected.tags.map((t: any) => (
+                    <span key={t.id} className="text-xs px-2 py-0.5 border border-border rounded-full text-muted-foreground">#{t.name}</span>
+                  ))}
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3 pt-4 border-t border-border">
+                {selected.slug && (
+                  <a href={`/services/${selected.slug}`} className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors text-sm">
+                    View Full Details
+                  </a>
+                )}
+                <a href={`/inquiries?service=${encodeURIComponent(selected.name)}${selected.slug ? `&ref=/services/${selected.slug}` : ''}`} className="flex-1 inline-flex items-center justify-center px-5 py-3 bg-accent hover:bg-accent/90 text-accent-foreground font-semibold rounded-xl transition-colors text-sm">
+                  Submit an Inquiry
+                </a>
+                <button onClick={() => setSelected(null)} className="px-5 py-3 border border-border hover:bg-muted rounded-xl text-sm transition-colors">
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ─── Featured Products Ring ───────────────────────────────────────────────────
 function FeaturedProductsSection() {
   const { data: res } = useProducts(1, 50, 'active');
   const raw = res as any;
@@ -903,19 +1165,22 @@ export default function Home() {
       {/* 6. Projects Strip */}
       <ProjectsStrip />
 
-      {/* 7. Featured Products */}
+      {/* 7. Featured Services */}
+      <FeaturedServicesSection />
+
+      {/* 8. Featured Products */}
       <FeaturedProductsSection />
 
-      {/* 8. Customers */}
+      {/* 9. Customers */}
       <CustomersSection />
 
-      {/* 9. Testimonials */}
+      {/* 10. Testimonials */}
       <TestimonialsSection />
 
-      {/* 10. FAQ */}
+      {/* 11. FAQ */}
       <FAQSection />
 
-      {/* 11. CTA */}
+      {/* 12. CTA */}
       <CTASection />
     </>
   );
