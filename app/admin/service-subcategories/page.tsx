@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Edit, Trash2, Search, Loader2 } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, Loader2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
 import {
   useServiceCategoryTree,
   useServiceCategories,
@@ -26,9 +26,37 @@ import {
 } from '@/lib/hooks/use-service-subcategories';
 import { toast } from 'sonner';
 
+const PAGE_SIZE = 10;
+
+function Pagination({ page, total, onPage }: { page: number; total: number; onPage: (p: number) => void }) {
+  const last = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  if (last <= 1) return null;
+  const from = (page - 1) * PAGE_SIZE + 1;
+  const to = Math.min(page * PAGE_SIZE, total);
+  return (
+    <div className="flex items-center justify-between pt-4 border-t border-border">
+      <p className="text-sm text-muted-foreground">Showing <strong>{from}–{to}</strong> of <strong>{total}</strong></p>
+      <div className="flex items-center gap-1">
+        <Button variant="outline" size="sm" onClick={() => onPage(1)} disabled={page === 1}><ChevronsLeft className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => onPage(page - 1)} disabled={page === 1}><ChevronLeft className="h-4 w-4" /></Button>
+        {Array.from({ length: last }, (_, i) => i + 1)
+          .filter(p => p === 1 || p === last || Math.abs(p - page) <= 1)
+          .reduce<(number | 'e')[]>((acc, p, i, arr) => { if (i > 0 && p - (arr[i - 1] as number) > 1) acc.push('e'); acc.push(p); return acc; }, [])
+          .map((p, i) => p === 'e'
+            ? <span key={`e${i}`} className="px-1 text-muted-foreground text-sm">…</span>
+            : <Button key={p} variant={p === page ? 'default' : 'outline'} size="sm" className="w-8 h-8 p-0" onClick={() => onPage(p as number)}>{p}</Button>
+          )}
+        <Button variant="outline" size="sm" onClick={() => onPage(page + 1)} disabled={page === last}><ChevronRight className="h-4 w-4" /></Button>
+        <Button variant="outline" size="sm" onClick={() => onPage(last)} disabled={page === last}><ChevronsRight className="h-4 w-4" /></Button>
+      </div>
+    </div>
+  );
+}
+
 export default function ServiceSubcategoriesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
+  const [page, setPage] = useState(1);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingSubcategory, setEditingSubcategory] = useState<ServiceSubcategory | null>(null);
 
@@ -56,24 +84,28 @@ export default function ServiceSubcategoriesPage() {
   }, [categoryTree]);
 
   // Determine which data to display
-  const displaySubcategories = useMemo(() => {
-    let subcategories = allSubcategories;
-
-    // Apply search filter (client-side since no search API for subcategories)
+  const filtered = useMemo(() => {
+    let list = allSubcategories;
     if (searchTerm.trim()) {
-      subcategories = subcategories.filter(subcategory =>
-        subcategory.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        subcategory.slug.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+      const q = searchTerm.toLowerCase();
+      list = list.filter(s => s.name.toLowerCase().includes(q) || s.slug.toLowerCase().includes(q));
     }
-
-    // Apply category filter
     if (categoryFilter !== 'all') {
-      subcategories = subcategories.filter(subcategory => subcategory.category_id === parseInt(categoryFilter));
+      list = list.filter(s => s.category_id === parseInt(categoryFilter));
     }
-
-    return subcategories;
+    return list;
   }, [allSubcategories, searchTerm, categoryFilter]);
+
+  const paginated = useMemo(
+    () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    [filtered, page]
+  );
+
+  const handleFilterChange = (search: string, cat: string) => {
+    setSearchTerm(search);
+    setCategoryFilter(cat);
+    setPage(1);
+  };
 
   const isLoading = subcategoriesLoading || categoriesLoading;
 
@@ -267,10 +299,7 @@ export default function ServiceSubcategoriesPage() {
 
       {/* Filters */}
       <Card>
-        <CardHeader>
-          <CardTitle>Filters</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="search">Search</Label>
@@ -280,14 +309,14 @@ export default function ServiceSubcategoriesPage() {
                   id="search"
                   placeholder="Search by name or slug..."
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={(e) => handleFilterChange(e.target.value, categoryFilter)}
                   className="pl-10"
                 />
               </div>
             </div>
             <div>
               <Label htmlFor="category-filter">Parent Category</Label>
-              <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <Select value={categoryFilter} onValueChange={(v) => handleFilterChange(searchTerm, v)}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
@@ -308,7 +337,7 @@ export default function ServiceSubcategoriesPage() {
       {/* Subcategories Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Service Subcategories ({displaySubcategories.length})</CardTitle>
+          <CardTitle>Service Subcategories ({filtered.length})</CardTitle>
           <CardDescription>Manage subcategories organized under parent categories</CardDescription>
         </CardHeader>
         <CardContent>
@@ -336,7 +365,7 @@ export default function ServiceSubcategoriesPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {displaySubcategories.map((subcategory) => (
+                  {paginated.map((subcategory) => (
                     <TableRow key={subcategory.id}>
                       <TableCell className="font-medium">{subcategory.name}</TableCell>
                       <TableCell>
@@ -374,11 +403,12 @@ export default function ServiceSubcategoriesPage() {
                   ))}
                 </TableBody>
               </Table>
-              {displaySubcategories.length === 0 && (
+              {paginated.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
-                  No service subcategories found matching the current filters.
+                  {searchTerm || categoryFilter !== 'all' ? 'No subcategories match your filters.' : 'No service subcategories found.'}
                 </div>
               )}
+              <Pagination page={page} total={filtered.length} onPage={setPage} />
             </>
           )}
         </CardContent>
