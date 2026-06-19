@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { usePathname } from 'next/navigation';
 import { X } from 'lucide-react';
 
 // WhatsApp SVG icon — avoids adding an icon library dependency
@@ -20,10 +21,12 @@ function WhatsAppIcon({ className }: { className?: string }) {
 
 export default function WhatsAppButton() {
   const number = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER;
+  const pathname = usePathname();
   const [tooltipVisible, setTooltipVisible] = useState(false);
   const [dismissed, setDismissed] = useState(false);
 
-  if (!number || dismissed) return null;
+  // Hide on all admin pages
+  if (!number || dismissed || pathname?.startsWith('/admin')) return null;
 
   const href = `https://wa.me/${number}`;
 
