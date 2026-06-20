@@ -584,7 +584,7 @@ export default function AdminProducts() {
               Add Product
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[800px] max-h-[90vh]">
+          <DialogContent className="sm:max-w-[800px] max-h-[90vh] overflow-hidden">
             <DialogHeader>
               <DialogTitle>{editingProduct ? 'Edit Product' : 'Add New Product'}</DialogTitle>
               <DialogDescription>
@@ -592,7 +592,7 @@ export default function AdminProducts() {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit}>
-              <div className="space-y-6 max-h-[70vh] overflow-y-auto">
+              <div className="space-y-6 max-h-[70vh] overflow-y-auto overflow-x-hidden pr-1">
                 {/* Basic Information */}
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium text-gray-900 border-b pb-2">Basic Information</h3>
@@ -654,10 +654,14 @@ export default function AdminProducts() {
                       <Label htmlFor="price">Price *</Label>
                       <Input
                         id="price"
-                        type="number"
-                        step="0.01"
-                        value={formData.price}
-                        onChange={(e) => setFormData({ ...formData, price: parseFloat(e.target.value) || 0 })}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.price === 0 ? '' : formData.price}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                          setFormData({ ...formData, price: v === '' ? 0 : (parseFloat(v) || 0) });
+                        }}
+                        onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
                         placeholder="999.00"
                         required
                       />
@@ -666,10 +670,14 @@ export default function AdminProducts() {
                       <Label htmlFor="sale_price">Sale Price</Label>
                       <Input
                         id="sale_price"
-                        type="number"
-                        step="0.01"
-                        value={formData.sale_price}
-                        onChange={(e) => setFormData({ ...formData, sale_price: parseFloat(e.target.value) || 0 })}
+                        type="text"
+                        inputMode="decimal"
+                        value={formData.sale_price === 0 ? '' : formData.sale_price}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9.]/g, '').replace(/(\..*)\./g, '$1');
+                          setFormData({ ...formData, sale_price: v === '' ? 0 : (parseFloat(v) || 0) });
+                        }}
+                        onFocus={(e) => { if (e.target.value === '0') e.target.value = ''; }}
                         placeholder="899.00"
                       />
                     </div>
@@ -683,6 +691,7 @@ export default function AdminProducts() {
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Latest MacBook Pro model with M3 chip"
                       rows={3}
+                      className="[field-sizing:fixed] resize-none overflow-y-auto max-h-32 break-all"
                     />
                   </div>
 
@@ -694,6 +703,7 @@ export default function AdminProducts() {
                       onChange={(e) => setFormData({ ...formData, short_description: e.target.value })}
                       placeholder="Powerful laptop for professionals"
                       rows={2}
+                      className="[field-sizing:fixed] resize-none overflow-y-auto max-h-24 break-all"
                     />
                   </div>
                 </div>
@@ -909,6 +919,7 @@ export default function AdminProducts() {
                       onChange={(e) => setFormData({ ...formData, seo_description: e.target.value })}
                       placeholder="Product description for search engines"
                       rows={2}
+                      className="[field-sizing:fixed] resize-none overflow-y-auto max-h-24 break-all"
                     />
                   </div>
 
