@@ -91,7 +91,7 @@ export default function Footer() {
               <li className="flex items-start space-x-3">
                 <MapPin size={16} className="mt-0.5 flex-shrink-0" />
                 <span>
-                  Air Current engineering solution , No 25 , 3rd floor,Highway
+                  Air Current engineering solution , No 25 , 3rd Floor, Highway
                   level road, Maharagama.
                 </span>
               </li>

@@ -124,10 +124,10 @@ function HeroSlider() {
 
 // ─── Stats Bar ────────────────────────────────────────────────────────────────
 const STATS = [
-  { value: '500+', label: 'Projects Completed' },
-  { value: '20+', label: 'Years Experience' },
+  { value: '1500+', label: 'Projects Completed' },
+  { value: '15+', label: 'Years Experience' },
   { value: '98%', label: 'Client Satisfaction' },
-  { value: '150+', label: 'Team Members' },
+  { value: '16+', label: 'Team Members' },
 ];
 
 // ─── Services Tabs ────────────────────────────────────────────────────────────
@@ -219,19 +219,18 @@ function AboutSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Image side */}
           <div className="relative">
-            <div className="rounded-2xl overflow-hidden aspect-[4/3] bg-gradient-to-br from-primary/20 to-accent/10 relative">
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="text-center text-primary/40">
-                  <div className="w-24 h-24 mx-auto mb-4 rounded-full border-4 border-primary/20 flex items-center justify-center">
-                    <span className="text-3xl font-black">ACE</span>
-                  </div>
-                  <p className="text-sm font-medium">Air Current Engineering</p>
-                </div>
-              </div>
+            <div className="rounded-2xl overflow-hidden aspect-[4/3] relative">
+              <Image
+                src="/home/pexels-mikhail-nilov-8297856.webp"
+                alt="Air Current Engineering Solutions"
+                fill
+                className="object-cover"
+              />
+              <div className="absolute inset-0 bg-primary/20" />
             </div>
             {/* Floating stat card */}
             <div className="absolute -bottom-6 -right-6 bg-primary text-primary-foreground rounded-2xl p-6 shadow-xl">
-              <p className="text-4xl font-black">20+</p>
+              <p className="text-4xl font-black">15`+</p>
               <p className="text-sm text-primary-foreground/80">Years of Excellence</p>
             </div>
           </div>
@@ -253,12 +252,12 @@ function AboutSection() {
 
             <div className="grid grid-cols-2 gap-4 mb-8">
               {[
-                { n: '500+', l: 'Projects Completed' },
-                { n: '100+', l: 'Happy Clients' },
-                { n: '20+', l: 'Years Experience' },
-                { n: '150+', l: 'Team Members' },
-              ].map((s) => (
-                <div key={s.n} className="bg-muted/60 rounded-xl p-4">
+                { n: '1500+', l: 'Projects Completed' },
+                { n: '`1500+', l: 'Happy Clients' },
+                { n: '15+', l: 'Years Experience' },
+                { n: '16+', l: 'Team Members' },
+              ].map((s, i) => (
+                <div key={i} className="bg-muted/60 rounded-xl p-4">
                   <p className="text-2xl font-bold text-primary">{s.n}</p>
                   <p className="text-sm text-muted-foreground">{s.l}</p>
                 </div>
