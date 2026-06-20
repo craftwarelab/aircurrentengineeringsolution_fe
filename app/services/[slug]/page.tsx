@@ -3,12 +3,9 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { getCloudinaryImageUrl } from '@/lib/cloudinary';
 import ServiceImageGallery from './service-image-gallery';
-import { sanitizeHtml } from '@/lib/sanitize';
 
-// Render on every request so new/updated services are always served correctly.
-// Without this, Next.js tries to statically generate at build time and 404s
-// for any slug not known at that point.
-export const dynamic = 'force-dynamic';
+// Revalidate every 60 seconds — ISR keeps pages fresh without force-dynamic
+export const revalidate = 60;
 
 
 interface ServiceImage {
@@ -44,11 +41,12 @@ async function getService(slug: string): Promise<Service | null> {
   const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   try {
     const res = await fetch(`${apiUrl}/services/slug/${slug}`, {
-      cache: 'no-store',
+      next: { revalidate: 60 },
+      headers: { 'Accept': 'application/json' },
     });
     if (!res.ok) return null;
-    const data = await res.json();
-    return data.success ? data.data : null;
+    const json = await res.json();
+    return json.success && json.data ? json.data : null;
   } catch {
     return null;
   }
@@ -192,10 +190,9 @@ export default async function ServicePage({
 
               {/* Short Description */}
               {service.short_description && (
-                <div
-                  className="text-muted-foreground leading-relaxed prose prose-sm max-w-none"
-                  dangerouslySetInnerHTML={{ __html: sanitizeHtml(service.short_description) }}
-                />
+                <p className="text-muted-foreground leading-relaxed">
+                  {service.short_description}
+                </p>
               )}
 
               {/* Meta grid */}
@@ -249,10 +246,9 @@ export default async function ServicePage({
           {service.description && (
             <div className="mt-16 border-t border-border pt-10">
               <h2 className="text-2xl font-bold text-foreground mb-6">Service Description</h2>
-              <div
-                className="text-muted-foreground leading-relaxed prose prose-sm max-w-4xl"
-                dangerouslySetInnerHTML={{ __html: sanitizeHtml(service.description) }}
-              />
+              <p className="text-muted-foreground leading-relaxed whitespace-pre-line max-w-4xl">
+                {service.description}
+              </p>
             </div>
           )}
 
