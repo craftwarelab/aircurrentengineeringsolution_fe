@@ -11,7 +11,9 @@ import { sanitizeHtml } from '@/lib/sanitize';
 // for any slug not known at that point.
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const INTERNAL_BASE = process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : 'http://localhost:3000';
 
 interface ProductImage {
   id: number;
@@ -47,8 +49,8 @@ interface Product {
 
 async function getProduct(slug: string): Promise<Product | null> {
   try {
-    const res = await fetch(`${API_URL}/products/slug/${slug}`, {
-      next: { revalidate: 60 },
+    const res = await fetch(`${INTERNAL_BASE}/api/products/slug/${slug}`, {
+      cache: 'no-store',
     });
     if (!res.ok) return null;
     const data = await res.json();

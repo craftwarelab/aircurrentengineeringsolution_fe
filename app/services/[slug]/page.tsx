@@ -10,7 +10,7 @@ import { sanitizeHtml } from '@/lib/sanitize';
 // for any slug not known at that point.
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
 interface ServiceImage {
   id: number;
