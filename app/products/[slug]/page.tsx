@@ -45,6 +45,9 @@ async function getProduct(slug: string): Promise<Product | null> {
   try {
     const res = await fetch(`${API_URL}/products/slug/${slug}`, {
       cache: 'no-store',
+      headers: {
+        'x-internal-api': 'aces-super-req-portvbn68768',
+      }
     });
     if (!res.ok) return null;
     const data = await res.json();
