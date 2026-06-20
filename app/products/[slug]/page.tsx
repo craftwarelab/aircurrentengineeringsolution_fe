@@ -1,15 +1,11 @@
 import { Metadata } from 'next';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { getCloudinaryImageUrl } from '@/lib/cloudinary';
 import ProductImageGallery from './product-image-gallery';
 import { sanitizeHtml } from '@/lib/sanitize';
 
-// Render on every request so new/updated products are always served correctly.
-// Without this, Next.js tries to statically generate at build time and 404s
-// for any slug not known at that point.
-// export const dynamic = 'force-dynamic';
+export const dynamic = 'force-dynamic';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
@@ -48,7 +44,7 @@ interface Product {
 async function getProduct(slug: string): Promise<Product | null> {
   try {
     const res = await fetch(`${API_URL}/products/slug/${slug}`, {
-      next: { revalidate: 6000 },
+      cache: 'no-store',
     });
     if (!res.ok) return null;
     const data = await res.json();
@@ -110,7 +106,25 @@ export default async function ProductPage({
   const { slug } = await params;
   const product = await getProduct(slug);
 
-  if (!product) notFound();
+  if (!product) {
+    return (
+      <div className="bg-background min-h-screen flex flex-col items-center justify-center px-4 text-center">
+        <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-6">
+          <span className="text-4xl">📦</span>
+        </div>
+        <h1 className="text-2xl font-bold text-foreground mb-2">Product Not Found</h1>
+        <p className="text-muted-foreground mb-8 max-w-sm">
+          The product you're looking for doesn't exist or may have been removed.
+        </p>
+        <Link
+          href="/products"
+          className="inline-flex items-center gap-2 px-6 py-3 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl transition-colors"
+        >
+          ← Browse All Products
+        </Link>
+      </div>
+    );
+  }
 
   const mainImage = product.images?.find((img) => img.is_main) || product.images?.[0];
   const displayPrice = Number(product.sale_price) || Number(product.price);
