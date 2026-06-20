@@ -10,9 +10,6 @@ import { sanitizeHtml } from '@/lib/sanitize';
 // for any slug not known at that point.
 export const dynamic = 'force-dynamic';
 
-const INTERNAL_BASE = process.env.VERCEL_URL
-  ? `https://${process.env.VERCEL_URL}`
-  : 'http://localhost:3000';
 
 interface ServiceImage {
   id: number;
@@ -44,8 +41,9 @@ interface Service {
 }
 
 async function getService(slug: string): Promise<Service | null> {
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   try {
-    const res = await fetch(`${INTERNAL_BASE}/api/services/slug/${slug}`, {
+    const res = await fetch(`${apiUrl}/services/slug/${slug}`, {
       cache: 'no-store',
     });
     if (!res.ok) return null;
