@@ -437,139 +437,108 @@ export default function ProductsPage() {
 
       {/* Product Detail Dialog */}
       {selectedProduct && (
-        <div 
+        <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
           onClick={() => setSelectedProduct(null)}
         >
-          <div 
-            className="bg-white rounded-2xl w-full max-w-[1400px] h-[80vh] overflow-hidden shadow-2xl flex flex-col lg:flex-row scale-[1.05]"
+          <div
+            className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl relative"
             onClick={(e) => e.stopPropagation()}
           >
-            
             {/* Close Button */}
             <button
               onClick={() => setSelectedProduct(null)}
-              className="absolute top-4 right-4 z-10 bg-white rounded-full p-2 shadow-lg hover:bg-gray-100"
+              className="absolute top-3 right-3 z-10 bg-white rounded-full p-1.5 shadow-md hover:bg-gray-100 border border-gray-200"
             >
-              <X size={20} />
+              <X size={16} />
             </button>
 
-              {/* Left: Image Gallery */}
-            <div className="lg:w-2/3 bg-gray-50 p-10 flex flex-col">
-              <div className="flex-1 flex items-center justify-center bg-white rounded-xl border mb-4 overflow-hidden relative">
-                {selectedProduct.images && selectedProduct.images.length > 0 ? (
-                   <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-                      {dialogImageLoading && (
-                        <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
-                          <div className="w-10 h-10 rounded-full border-4 border-gray-200 border-t-accent animate-spin" />
-                        </div>
-                      )}
-                      <Zoom key={selectedImageIndex}>
-                        <img
-                          src={getCloudinaryImageUrl(
-                            selectedProduct.images[selectedImageIndex]?.url || selectedProduct.images[0].url,
-                            { width: 800, height: 600, crop: 'fill' }
-                          )}
-                          alt={selectedProduct.name}
-                          className="relative max-h-full max-w-full object-contain transition-transform duration-200"
-                          onLoad={() => setDialogImageLoading(false)}
-                        />
-                      </Zoom>
-                   </div>
-                ) : (
-                  <div className="text-center">
-                    <div className="text-8xl mb-4">❄️</div>
-                    <div className="text-lg font-medium text-gray-500">No image available</div>
+            {/* Image */}
+            {selectedProduct.images && selectedProduct.images.length > 0 && (
+              <div className="relative w-full h-56 sm:h-64 bg-gray-50 rounded-t-2xl overflow-hidden">
+                {dialogImageLoading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center bg-gray-100">
+                    <div className="w-8 h-8 rounded-full border-4 border-gray-200 border-t-accent animate-spin" />
                   </div>
+                )}
+                <img
+                  src={getCloudinaryImageUrl(
+                    selectedProduct.images[selectedImageIndex]?.url || selectedProduct.images[0].url,
+                    { width: 700, height: 400, crop: 'fill' }
+                  )}
+                  alt={selectedProduct.name}
+                  className="w-full h-full object-cover"
+                  onLoad={() => setDialogImageLoading(false)}
+                />
+              </div>
+            )}
+
+            {/* Thumbnails */}
+            {selectedProduct.images && selectedProduct.images.length > 1 && (
+              <div className="flex gap-2 overflow-x-auto px-4 pt-3 pb-1">
+                {selectedProduct.images.map((img: any, index: number) => (
+                  <button
+                    key={index}
+                    onClick={() => { setSelectedImageIndex(index); setDialogImageLoading(true); }}
+                    className={`flex-shrink-0 w-14 h-14 rounded-lg border-2 overflow-hidden transition-all ${
+                      selectedImageIndex === index ? 'border-accent' : 'border-gray-200 hover:border-gray-400'
+                    }`}
+                  >
+                    <img
+                      src={getCloudinaryImageUrl(img.url, { width: 80, height: 80, crop: 'fill' })}
+                      alt={`${selectedProduct.name} ${index + 1}`}
+                      className="w-full h-full object-cover"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Info */}
+            <div className="p-5">
+              {/* Categories */}
+              <div className="flex flex-wrap gap-1.5 mb-3">
+                {selectedProduct.categories?.map((c: any) => (
+                  <span key={c.id} className="text-xs px-2.5 py-0.5 bg-accent/10 text-accent rounded-full">{c.name}</span>
+                ))}
+                {selectedProduct.sale_price && (
+                  <span className="text-xs px-2.5 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">SALE</span>
                 )}
               </div>
 
-              {/* Thumbnails */}
-              {selectedProduct.images && selectedProduct.images.length > 0 && (
-                <div className="flex gap-3 overflow-x-auto pb-2">
-                  {selectedProduct.images.map((img: any, index: number) => (
-                    <button
-                      key={index}
-                      onClick={() => { setSelectedImageIndex(index); setDialogImageLoading(true); }}
-                      className={`flex-shrink-0 w-20 h-20 rounded-lg border-2 overflow-hidden transition-all ${
-                        selectedImageIndex === index ? 'border-accent' : 'border-gray-200'
-                      }`}
-                    >
-                      <img
-                        src={getCloudinaryImageUrl(img.url, { width: 120, height: 120, crop: 'fill' })}
-                        alt={`${selectedProduct.name} ${index + 1}`}
-                        className="w-full h-full object-cover"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">{selectedProduct.name}</h2>
 
-            {/* Right: Product Info */}
-            <div className="lg:w-1/3 p-6 flex flex-col overflow-y-auto">
-              <div className="mb-6">
-                {selectedProduct.type && (
-                  <span className="inline-block text-sm px-3 py-1 bg-accent/10 text-accent rounded-full mb-3">
-                    {selectedProduct.type}
-                  </span>
-                )}
-                <h1 className="text-3xl font-bold text-gray-900 mb-4">
-                  {selectedProduct.name}
-                </h1>
-                
-                {/* Price */}
-                <div className="flex items-baseline gap-3 mb-2">
-                  <span className="text-4xl font-bold text-gray-900">
+              {/* Price */}
+              {(selectedProduct.sale_price || selectedProduct.price) && (
+                <div className="flex items-baseline gap-2 mb-3">
+                  <span className="text-2xl font-bold text-gray-900">
                     ${(selectedProduct.sale_price || selectedProduct.price || 0).toLocaleString()}
                   </span>
                   {selectedProduct.sale_price && selectedProduct.price && (
-                    <span className="text-xl text-gray-400 line-through">
-                      ${selectedProduct.price.toLocaleString()}
-                    </span>
+                    <span className="text-sm text-gray-400 line-through">${selectedProduct.price.toLocaleString()}</span>
                   )}
                 </div>
-                 <p className="text-sm text-gray-500">Starting price • Contact for quote</p>
-               </div>
- 
-               {/* Description */}
-              <div className="mb-8">
-                <h3 className="font-semibold text-lg mb-3">Product Description</h3>
-                <p className="text-gray-600 leading-relaxed">
+              )}
+
+              {/* Description */}
+              {(selectedProduct.short_description || selectedProduct.description) && (
+                <p className="text-sm text-gray-600 leading-relaxed mb-4 line-clamp-3">
                   {selectedProduct.short_description || selectedProduct.description}
                 </p>
+              )}
+
+              {/* CTA */}
+              <div className="pt-3 border-t border-gray-100">
+                <Button asChild className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
+                  <Link href={selectedProduct.slug ? `/products/${selectedProduct.slug}` : `/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
+                    View Full Details
+                  </Link>
+                </Button>
               </div>
-
-              {/* Specifications */}
-               {selectedProduct.specifications && Object.keys(selectedProduct.specifications).length > 0 && (
-                 <div className="mb-8">
-                   <h3 className="font-semibold text-lg mb-4">Specifications</h3>
-                   <div className="grid grid-cols-1 gap-3">
-                     {Object.entries(selectedProduct.specifications).map(([key, value]) => (
-                       <div key={key} className="flex justify-between border-b pb-2">
-                         <span className="text-gray-500">{key}</span>
-                         <span className="font-medium">{value}</span>
-                       </div>
-                     ))}
-                   </div>
-                 </div>
-               )}
-
-              <div className="flex-1"></div>
-
-               {/* Actions */}
-                 <div className="pt-4 border-t mt-auto">
-                  <Button asChild size="lg" className="w-full bg-accent hover:bg-accent/90 text-accent-foreground">
-                    <Link href={selectedProduct.slug ? `/products/${selectedProduct.slug}` : `/contact?product=${encodeURIComponent(selectedProduct.name)}`}>
-                      View Product
-                    </Link>
-                  </Button>
-                </div>
-             </div>
-           </div>
-
-         </div>
-       )}
+            </div>
+          </div>
+        </div>
+      )}
      </>
    );
  }
