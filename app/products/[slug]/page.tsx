@@ -4,6 +4,12 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { getCloudinaryImageUrl } from '@/lib/cloudinary';
 import ProductImageGallery from './product-image-gallery';
+import { sanitizeHtml } from '@/lib/sanitize';
+
+// Render on every request so new/updated products are always served correctly.
+// Without this, Next.js tries to statically generate at build time and 404s
+// for any slug not known at that point.
+export const dynamic = 'force-dynamic';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
 
