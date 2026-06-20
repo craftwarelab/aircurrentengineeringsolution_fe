@@ -86,7 +86,7 @@ export class AuthUtils {
   // Clears the login hint if refresh fails (fail-safe).
   static async refreshAccessToken(): Promise<string | null> {
     try {
-      const response = await fetch('/api/auth/refresh-token', {
+      const response = await fetch(process.env.NEXT_PUBLIC_API_URL+'/auth/refresh-token', {
         method: 'POST',
         credentials: 'include',
       });
