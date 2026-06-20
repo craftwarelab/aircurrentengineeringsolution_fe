@@ -360,27 +360,28 @@ export default function TestimonialsPage() {
             <div className="text-center py-10 text-red-500">Error loading testimonials: {error.message}</div>
           ) : (
             <>
-              <Table>
+              <div className="overflow-x-auto">
+              <Table className="min-w-[700px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-[22%]">Customer</TableHead>
-                    <TableHead className="w-[30%]">Message</TableHead>
-                    <TableHead className="w-[10%]">Approved</TableHead>
-                    <TableHead className="w-[14%]">Status</TableHead>
-                    <TableHead className="w-[6%]">Pos.</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="w-44">Customer</TableHead>
+                    <TableHead>Message</TableHead>
+                    <TableHead className="w-28">Approved</TableHead>
+                    <TableHead className="w-32">Status</TableHead>
+                    <TableHead className="w-14 text-center">Pos.</TableHead>
+                    <TableHead className="w-28 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginated.map((t) => (
                     <TableRow key={t.id}>
-                      <TableCell>
-                        <p className="font-medium">{t.customer_name}</p>
+                      <TableCell className="align-top">
+                        <p className="font-medium text-sm">{t.customer_name}</p>
                         {t.customer_position && <p className="text-xs text-muted-foreground">{t.customer_position}</p>}
                         {t.company_name && <p className="text-xs text-muted-foreground">{t.company_name}</p>}
                       </TableCell>
-                      <TableCell>
-                        <p className="text-sm text-muted-foreground line-clamp-2">{t.message}</p>
+                      <TableCell className="align-top max-w-xs">
+                        <p className="text-sm text-muted-foreground line-clamp-2 break-words">{t.message}</p>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1.5">
@@ -436,6 +437,7 @@ export default function TestimonialsPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
 
               {paginated.length === 0 && (
                 <div className="text-center py-10 text-gray-500">

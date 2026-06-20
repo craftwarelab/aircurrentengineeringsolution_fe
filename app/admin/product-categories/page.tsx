@@ -213,31 +213,36 @@ export default function ProductCategoriesPage() {
             <div className="text-center py-8 text-red-500">Error loading categories: {categoriesError.message}</div>
           ) : (
             <>
-              <Table>
+              <div className="overflow-x-auto">
+              <Table className="min-w-[600px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Position</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-48">Name</TableHead>
+                    <TableHead className="w-48">Slug</TableHead>
+                    <TableHead className="w-20 text-center">Position</TableHead>
+                    <TableHead className="w-24">Status</TableHead>
+                    <TableHead className="w-28">Created</TableHead>
+                    <TableHead className="w-24 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginated.map((category) => (
                     <TableRow key={category.id}>
-                      <TableCell className="font-medium">{category.name}</TableCell>
-                      <TableCell className="font-mono text-sm">{category.slug}</TableCell>
-                      <TableCell>{category.position}</TableCell>
+                      <TableCell className="font-medium max-w-[12rem]">
+                        <p className="truncate" title={category.name}>{category.name}</p>
+                      </TableCell>
+                      <TableCell className="max-w-[12rem]">
+                        <p className="font-mono text-sm truncate" title={category.slug}>{category.slug}</p>
+                      </TableCell>
+                      <TableCell className="text-center">{category.position}</TableCell>
                       <TableCell>
                         <Badge variant={category.is_active ? 'default' : 'secondary'}>
                           {category.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
                       <TableCell>{new Date(category.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEditCategory(category)} disabled={updatingCategory}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -250,6 +255,7 @@ export default function ProductCategoriesPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               {paginated.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   {searchTerm.trim() ? 'No categories match your search.' : 'No product categories found.'}

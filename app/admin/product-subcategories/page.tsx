@@ -274,33 +274,42 @@ export default function ProductSubcategoriesPage() {
             <div className="text-center py-8 text-red-500">Error loading subcategories: {subcategoriesError.message}</div>
           ) : (
             <>
-              <Table>
+              <div className="overflow-x-auto">
+              <Table className="min-w-[680px]">
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Name</TableHead>
-                    <TableHead>Parent Category</TableHead>
-                    <TableHead>Slug</TableHead>
-                    <TableHead>Position</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead>Actions</TableHead>
+                    <TableHead className="w-44">Name</TableHead>
+                    <TableHead className="w-36">Parent Category</TableHead>
+                    <TableHead className="w-44">Slug</TableHead>
+                    <TableHead className="w-20 text-center">Position</TableHead>
+                    <TableHead className="w-24">Status</TableHead>
+                    <TableHead className="w-28">Created</TableHead>
+                    <TableHead className="w-24 text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {paginated.map((subcategory: ProductSubcategory) => (
                     <TableRow key={subcategory.id}>
-                      <TableCell className="font-medium">{subcategory.name}</TableCell>
-                      <TableCell><Badge variant="outline">{getCategoryName(subcategory.category_id)}</Badge></TableCell>
-                      <TableCell className="font-mono text-sm">{subcategory.slug}</TableCell>
-                      <TableCell>{subcategory.position}</TableCell>
+                      <TableCell className="font-medium max-w-[11rem]">
+                        <p className="truncate" title={subcategory.name}>{subcategory.name}</p>
+                      </TableCell>
+                      <TableCell className="max-w-[9rem]">
+                        <Badge variant="outline" className="truncate max-w-full block" title={getCategoryName(subcategory.category_id)}>
+                          {getCategoryName(subcategory.category_id)}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="max-w-[11rem]">
+                        <p className="font-mono text-sm truncate" title={subcategory.slug}>{subcategory.slug}</p>
+                      </TableCell>
+                      <TableCell className="text-center">{subcategory.position}</TableCell>
                       <TableCell>
                         <Badge variant={subcategory.is_active ? 'default' : 'secondary'}>
                           {subcategory.is_active ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
                       <TableCell>{new Date(subcategory.created_at).toLocaleDateString()}</TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
                           <Button variant="outline" size="sm" onClick={() => handleEditSubcategory(subcategory)} disabled={updatingSubcategory}>
                             <Edit className="h-4 w-4" />
                           </Button>
@@ -313,6 +322,7 @@ export default function ProductSubcategoriesPage() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               {paginated.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   {searchTerm || categoryFilter !== 'all' ? 'No subcategories match your filters.' : 'No product subcategories found.'}
