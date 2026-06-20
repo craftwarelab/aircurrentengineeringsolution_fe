@@ -31,7 +31,7 @@ export default function Navigation() {
               AE
             </div> */}
             <span className="font-semibold text-foreground hidden sm:inline group-hover:text-primary transition-colors">
-              Air Current Engineering Solution
+              ACES
             </span>
           </Link>
 
