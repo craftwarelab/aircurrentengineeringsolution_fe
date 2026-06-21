@@ -50,7 +50,7 @@ async function getProduct(slug: string): Promise<Product | null> {
     const res = await fetch(`${API_URL}/products/slug/${slug}`, {
       cache: 'no-store',
       headers: {
-        'x-internal-api': X_INTERNAL_API_HEADER,
+        'X-Internal-Api': X_INTERNAL_API_HEADER,
       }
     });
     console.log(`[getProduct] Response status: ${res.status}`);
