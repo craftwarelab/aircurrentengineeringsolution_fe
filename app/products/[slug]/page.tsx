@@ -44,16 +44,20 @@ interface Product {
 
 async function getProduct(slug: string): Promise<Product | null> {
   try {
+    console.log(`[getProduct] Fetching product: ${slug}`);
     const res = await fetch(`${API_URL}/products/slug/${slug}`, {
       cache: 'no-store',
       headers: {
         'x-internal-api': X_INTERNAL_API_HEADER,
       }
     });
+    console.log(`[getProduct] Response status: ${res.status}`);
     if (!res.ok) return null;
     const data = await res.json();
+    console.log(`[getProduct] Found:`, data.success ? data.data?.name : 'not found');
     return data.success ? data.data : null;
-  } catch {
+  } catch (err) {
+    console.error(`[getProduct] Error fetching "${slug}":`, err);
     return null;
   }
 }
