@@ -7,7 +7,8 @@ import { sanitizeHtml } from '@/lib/sanitize';
 
 export const dynamic = 'force-dynamic';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_URL = process.env.NEXT_PUBLIC_INTERNAL_API || 'http://localhost:8000/api';
+const X_INTERNAL_API_HEADER = process.env.NEXT_PUBLIC_INTERNAL_API_KEY || 'internal-api-key-placeholder';
 
 interface ProductImage {
   id: number;
@@ -46,7 +47,7 @@ async function getProduct(slug: string): Promise<Product | null> {
     const res = await fetch(`${API_URL}/products/slug/${slug}`, {
       cache: 'no-store',
       headers: {
-        'x-internal-api': 'aces-super-req-portvbn68768',
+        'x-internal-api': X_INTERNAL_API_HEADER,
       }
     });
     if (!res.ok) return null;
