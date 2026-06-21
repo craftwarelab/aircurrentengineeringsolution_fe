@@ -44,6 +44,8 @@ interface Product {
 
 async function getProduct(slug: string): Promise<Product | null> {
   try {
+    console.log("API_URL:", API_URL);
+    console.log("HEADER:", X_INTERNAL_API_HEADER);
     console.log(`[getProduct] Fetching product: ${slug}`);
     const res = await fetch(`${API_URL}/products/slug/${slug}`, {
       cache: 'no-store',
