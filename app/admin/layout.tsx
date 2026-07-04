@@ -76,13 +76,13 @@ export default function AdminLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const [authChecked, setAuthChecked] = useState(false);
+  const [authChecked,    setAuthChecked]    = useState(false);
+  const [isSuperAdmin,   setIsSuperAdmin]   = useState(false);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['Dashboard']));
   const [hasUserInteracted, setHasUserInteracted] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, restoring, refresh } = useAuth();
-  const isSuperAdmin = isAuthenticated && AuthUtils.getUser()?.role === 'superAdmin';
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
@@ -101,6 +101,8 @@ export default function AdminLayout({
 
       if (ok) {
         setAuthChecked(true);
+        // Read role after auth is confirmed — token and user are in memory now
+        setIsSuperAdmin(AuthUtils.getUser()?.role === 'superAdmin');
       } else {
         router.push('/admin/login');
       }
