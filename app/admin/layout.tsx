@@ -85,7 +85,12 @@ export default function AdminLayout({
   const { isAuthenticated, restoring, refresh } = useAuth();
 
   useEffect(() => {
-    if (pathname === '/admin/login') return;
+    // Reset auth state when navigating to login — handles logout + re-login flow
+    if (pathname === '/admin/login') {
+      setAuthChecked(false);
+      setIsSuperAdmin(false);
+      return;
+    }
     if (pathname === '/admin/forgot-password') return;
     if (pathname === '/admin/reset-password') return;
     if (authChecked) return;
@@ -146,6 +151,8 @@ export default function AdminLayout({
 
     AuthUtils.logout();
     window.dispatchEvent(new CustomEvent('authChange'));
+    setAuthChecked(false);
+    setIsSuperAdmin(false);
     router.push('/admin/login');
   };
 
