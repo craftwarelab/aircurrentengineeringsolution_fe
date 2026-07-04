@@ -35,11 +35,14 @@ interface Profile {
   updated_at: string;
 }
 
-// ─── Helper — authenticated fetch via Next.js proxy routes ───────────────────
+// ─── Helper — calls backend directly (NEXT_PUBLIC_API_URL is correctly
+// embedded in the browser bundle; never read at module level to avoid
+// the build-time baking issue with the localhost fallback) ───────────────────
 
 async function profileFetch(method: string, path: string, body?: object) {
   const token = AuthUtils.getAccessToken();
-  const res = await fetch(`/api/profile${path}`, {
+  const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+  const res = await fetch(`${base}/profile${path}`, {
     method,
     headers: {
       'Content-Type': 'application/json',
