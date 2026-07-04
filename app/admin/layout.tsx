@@ -19,7 +19,8 @@ import {
   LogOut,
   ChevronDown,
   ChevronRight,
-  User
+  User,
+  Users,
 } from 'lucide-react';
 
 const navSections = [
@@ -81,6 +82,7 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, restoring, refresh } = useAuth();
+  const isSuperAdmin = AuthUtils.getUser()?.role === 'superAdmin';
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
@@ -231,6 +233,41 @@ export default function AdminLayout({
                     )}
                   </div>
                 ))}
+
+                {/* SuperAdmin only — User Management */}
+                {isSuperAdmin && (
+                  <>
+                    <div className="my-4 border-t border-gray-200" />
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => toggleSection('User Management')}
+                        className="flex items-center justify-between w-full px-3 py-2 text-sm font-medium text-amber-700 hover:bg-amber-50 rounded-md transition-colors"
+                      >
+                        <span>User Management</span>
+                        {expandedSections.has('User Management') ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </button>
+                      {expandedSections.has('User Management') && (
+                        <div className="ml-4 space-y-1">
+                          <Link
+                            href="/admin/users"
+                            className={`flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors ${
+                              pathname === '/admin/users'
+                                ? 'bg-amber-100 text-amber-900 border border-amber-200'
+                                : 'text-gray-700 hover:bg-gray-100 hover:text-gray-900'
+                            }`}
+                          >
+                            <Users className="h-4 w-4 mr-3" />
+                            Users
+                          </Link>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                )}
               </nav>
             </Card>
           </aside>
