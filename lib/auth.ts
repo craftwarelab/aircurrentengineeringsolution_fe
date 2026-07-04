@@ -19,8 +19,17 @@ export class AuthUtils {
 
   static getUser(): any | null {
     if (typeof window === 'undefined') return null;
+    // First try sessionStorage
     const userData = sessionStorage.getItem(this.USER_KEY);
-    return userData ? JSON.parse(userData) : null;
+    if (userData) return JSON.parse(userData);
+    // Fallback: decode role from the in-memory access token
+    if (accessToken) {
+      try {
+        const payload = JSON.parse(atob(accessToken.split('.')[1]));
+        return payload;
+      } catch { return null; }
+    }
+    return null;
   }
 
   static setUser(user: any): void {

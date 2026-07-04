@@ -82,7 +82,7 @@ export default function AdminLayout({
   const router = useRouter();
   const pathname = usePathname();
   const { isAuthenticated, restoring, refresh } = useAuth();
-  const isSuperAdmin = AuthUtils.getUser()?.role === 'superAdmin';
+  const isSuperAdmin = isAuthenticated && AuthUtils.getUser()?.role === 'superAdmin';
 
   useEffect(() => {
     if (pathname === '/admin/login') return;
