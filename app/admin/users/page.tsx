@@ -170,9 +170,16 @@ export default function UsersPage() {
     statusFilter !== 'all' ? statusFilter === 'active' : undefined,
   );
 
-  const { data: totalCount }    = useUserCount();
-  const { data: adminCount }    = useUserCount('admin');
-  const { data: inactiveCount } = useUserCount(undefined, false);
+  const { data: totalCount,    mutate: mutateTotalCount    } = useUserCount();
+  const { data: adminCount,    mutate: mutateAdminCount    } = useUserCount('admin');
+  const { data: inactiveCount, mutate: mutateInactiveCount } = useUserCount(undefined, false);
+
+  // Revalidate all stat cards at once
+  const mutateAllCounts = () => {
+    mutateTotalCount();
+    mutateAdminCount();
+    mutateInactiveCount();
+  };
 
   const { trigger: createUser,  isMutating: creating  } = useCreateUser();
   const { trigger: updateUser,  isMutating: updating  } = useUpdateUser();
@@ -193,6 +200,7 @@ export default function UsersPage() {
     const res = await createUser(formData);
     if (res?.success) {
       await mutate();
+      mutateAllCounts();
       setIsAddOpen(false);
       setFormData(EMPTY_FORM);
       toast.success('User created successfully');
@@ -240,6 +248,7 @@ export default function UsersPage() {
       toast.error(res?.message || 'Failed to toggle status');
     } else {
       toast.success(res.message);
+      mutateInactiveCount(); // disabled count changes on every toggle
     }
   };
 
@@ -248,6 +257,7 @@ export default function UsersPage() {
     const res = await deleteUser(toDelete.id);
     if (res?.success) {
       await mutate();
+      mutateAllCounts();
       setToDelete(null);
       setDelConfirm('');
       toast.success('User deleted');
