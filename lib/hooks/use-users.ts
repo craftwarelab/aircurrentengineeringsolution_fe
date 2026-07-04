@@ -52,11 +52,21 @@ export interface UpdateUserRequest {
   is_active?: boolean;
 }
 
-// ─── Helper ───────────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+// Read at call time — NEXT_PUBLIC_API_URL is embedded in the browser bundle
+// correctly on every environment. Never read it at module level to avoid
+// the build-time baking issue with the fallback value.
+function backendUrl() {
+  return process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+}
 
 function authHeaders() {
   const token = AuthUtils.getAccessToken();
-  return { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) };
+  return {
+    'Content-Type': 'application/json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
 }
 
 async function fetcher(url: string) {
@@ -71,22 +81,27 @@ async function fetcher(url: string) {
 
 export function useUsers(limit = 20, offset = 0, search?: string, role?: string, is_active?: boolean) {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) });
-  if (search)              params.set('search', search);
-  if (role)                params.set('role', role);
+  if (search)                  params.set('search', search);
+  if (role)                    params.set('role', role);
   if (is_active !== undefined) params.set('is_active', String(is_active));
 
-  return useSWR<UsersListResponse>(`/api/users?${params}`, fetcher, {
-    revalidateOnFocus: false,
-  });
+  // Call backend directly from the browser — same as every other hook
+  const base = backendUrl();
+  return useSWR<UsersListResponse>(
+    `${base}/users?${params}`,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
 }
 
 export function useUserCount(role?: string, is_active?: boolean) {
   const params = new URLSearchParams();
-  if (role)                params.set('role', role);
+  if (role)                    params.set('role', role);
   if (is_active !== undefined) params.set('is_active', String(is_active));
   const q = params.toString();
+  const base = backendUrl();
   return useSWR<{ success: boolean; data: { count: number } }>(
-    `/api/users/count${q ? `?${q}` : ''}`,
+    `${base}/users/count${q ? `?${q}` : ''}`,
     fetcher,
     { revalidateOnFocus: false }
   );
@@ -96,7 +111,7 @@ export function useCreateUser() {
   return useSWRMutation(
     'create-user',
     async (_key: string, { arg }: { arg: CreateUserRequest }) => {
-      const res = await fetch('/api/users', {
+      const res = await fetch(`${backendUrl()}/users`, {
         method: 'POST',
         headers: authHeaders(),
         body: JSON.stringify(arg),
@@ -110,7 +125,7 @@ export function useUpdateUser() {
   return useSWRMutation(
     'update-user',
     async (_key: string, { arg }: { arg: { id: number; data: UpdateUserRequest } }) => {
-      const res = await fetch(`/api/users/${arg.id}`, {
+      const res = await fetch(`${backendUrl()}/users/${arg.id}`, {
         method: 'PUT',
         headers: authHeaders(),
         body: JSON.stringify(arg.data),
@@ -124,7 +139,7 @@ export function useToggleUserStatus() {
   return useSWRMutation(
     'toggle-user-status',
     async (_key: string, { arg }: { arg: { id: number; is_active: boolean } }) => {
-      const res = await fetch(`/api/users/${arg.id}/status`, {
+      const res = await fetch(`${backendUrl()}/users/${arg.id}/status`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ is_active: arg.is_active }),
@@ -138,7 +153,7 @@ export function useDeleteUser() {
   return useSWRMutation(
     'delete-user',
     async (_key: string, { arg }: { arg: number }) => {
-      const res = await fetch(`/api/users/${arg}`, {
+      const res = await fetch(`${backendUrl()}/users/${arg}`, {
         method: 'DELETE',
         headers: authHeaders(),
       });
