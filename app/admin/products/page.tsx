@@ -1001,11 +1001,11 @@ export default function AdminProducts() {
                <TableBody>
                   {products.map((product: Product) => (
                 <TableRow key={product.id}>
-                  <TableCell className="font-medium">
+                  <TableCell className="font-medium max-w-[200px]">
                     <div>
-                      <div className="font-medium">{product.name}</div>
+                      <div className="font-medium truncate" title={product.name}>{product.name}</div>
                       {product.slug && (
-                        <div className="text-sm text-gray-500 font-mono">/{product.slug}</div>
+                        <div className="text-sm text-gray-500 font-mono truncate" title={`/${product.slug}`}>/{product.slug}</div>
                       )}
                     </div>
                   </TableCell>
