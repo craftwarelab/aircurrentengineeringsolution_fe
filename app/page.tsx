@@ -13,6 +13,7 @@ import { useServices } from '@/lib/hooks/use-services';
 import { useProjects } from '@/lib/hooks/use-projects';
 import { useFeaturedCustomers, type Customer } from '@/lib/hooks/use-customers';
 import { useProducts } from '@/lib/hooks/use-products';
+import { getCloudinaryImageUrl } from '@/lib/cloudinary';
 
 // ─── Hero Slider ──────────────────────────────────────────────────────────────
 const SLIDES = [
@@ -700,8 +701,6 @@ function FeaturedProductsSection() {
 
   if (!allProducts.length) return null;
 
-  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
-
   return (
     <section className="py-14 bg-muted/40">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -731,7 +730,7 @@ function FeaturedProductsSection() {
                 <div className="relative bg-gray-50" style={{ height: 200 }}>
                   {mainImg ? (
                     <img
-                      src={`${cloudinaryBase}${mainImg}`}
+                      src={getCloudinaryImageUrl(mainImg, { width: 400, height: 200, crop: 'fill' })}
                       alt={p.name}
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -775,7 +774,7 @@ function FeaturedProductsSection() {
               return mainImg ? (
                 <div className="relative w-full h-64 bg-gray-100 overflow-hidden rounded-t-2xl">
                   <img
-                    src={`${cloudinaryBase}${mainImg}`}
+                    src={getCloudinaryImageUrl(mainImg, { width: 800, height: 400, crop: 'fill' })}
                     alt={selected.name}
                     className="absolute inset-0 w-full h-full object-cover"
                   />
