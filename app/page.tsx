@@ -142,7 +142,6 @@ function ServicesSection() {
   const current = services[active];
   const mainImg = current?.images?.find((i: any) => i.is_main)?.url
     || current?.images?.[0]?.url;
-  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
 
   return (
     <section className="bg-muted/40 py-16">
@@ -176,7 +175,7 @@ function ServicesSection() {
           <div className="rounded-2xl overflow-hidden bg-muted aspect-video relative">
             {mainImg ? (
               <Image
-                src={`${cloudinaryBase}${mainImg}`}
+                src={getCloudinaryImageUrl(mainImg, { width: 800, height: 450, crop: 'fill' })}
                 alt={current.name}
                 fill
                 className="object-cover"
@@ -502,7 +501,6 @@ function FeaturedServicesSection() {
   if (!allServices.length) return null;
 
   const visiblePair    = allServices.slice(page * PER_PAGE, page * PER_PAGE + PER_PAGE);
-  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
 
   return (
     <section className="py-14 bg-background">
@@ -543,7 +541,7 @@ function FeaturedServicesSection() {
                 <div className="relative w-full overflow-hidden" style={{ height: 240 }}>
                   {mainImg ? (
                     <img
-                      src={`${cloudinaryBase}${mainImg}`}
+                      src={getCloudinaryImageUrl(mainImg, { width: 600, height: 240, crop: 'fill' })}
                       alt={s.name}
                       className="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                     />
@@ -618,7 +616,7 @@ function FeaturedServicesSection() {
               const mainImg = selected.images?.find((img: any) => img.is_main)?.url || selected.images?.[0]?.url;
               return mainImg ? (
                 <div className="relative w-full h-64 bg-gray-100 overflow-hidden rounded-t-2xl">
-                  <img src={`${cloudinaryBase}${mainImg}`} alt={selected.name} className="absolute inset-0 w-full h-full object-cover" />
+                  <img src={getCloudinaryImageUrl(mainImg, { width: 800, height: 400, crop: 'fill' })} alt={selected.name} className="absolute inset-0 w-full h-full object-cover" />
                 </div>
               ) : null;
             })()}
