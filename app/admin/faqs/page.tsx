@@ -425,7 +425,7 @@ export default function FAQsPage() {
             </div>
           ) : (
             <>
-              <Table>
+              <Table className="table-fixed w-full">
                 <TableHeader>
                   <TableRow>
                     <TableHead className="w-[35%]">Question</TableHead>
@@ -438,11 +438,11 @@ export default function FAQsPage() {
                 <TableBody>
                   {faqs.map((faq) => (
                     <TableRow key={faq.id}>
-                      <TableCell className="font-medium max-w-xs">
-                        <p className="truncate">{faq.question}</p>
+                      <TableCell className="font-medium">
+                        <p className="truncate" title={faq.question}>{faq.question}</p>
                       </TableCell>
-                      <TableCell className="max-w-xs">
-                        <p className="truncate text-muted-foreground text-sm">{faq.answer}</p>
+                      <TableCell>
+                        <p className="truncate text-muted-foreground text-sm" title={faq.answer}>{faq.answer}</p>
                       </TableCell>
                       <TableCell className="text-center">{faq.priority}</TableCell>
                       <TableCell>
