@@ -330,7 +330,6 @@ function ProjectsStrip() {
   const { data: raw } = useProjects(1, 10, 'active');
   const projects: any[] = Array.isArray(raw) ? raw : ((raw as any)?.data?.data ?? []);
   const stripRef = useRef<HTMLDivElement>(null);
-  const cloudinaryBase = 'https://res.cloudinary.com/da8z1bho8/image/upload/';
 
   if (!projects.length) return null;
 
@@ -368,7 +367,7 @@ function ProjectsStrip() {
                 <div className="relative h-44 bg-white/10">
                   {img ? (
                     <Image
-                      src={`${cloudinaryBase}${img}`}
+                      src={getCloudinaryImageUrl(img, { width: 300, height: 176, crop: 'fill' })}
                       alt={p.title}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-500"
