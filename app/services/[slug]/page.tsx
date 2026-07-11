@@ -150,9 +150,9 @@ export default function ServicePage() {
               {service.code && <p className="text-muted-foreground mt-1 text-sm">Code: {service.code}</p>}
             </div>
 
-            {/* Price */}
+            {/* Price - hidden */}
             {effectivePrice && (
-              <div>
+              <div className="hidden">
                 <div className="flex items-baseline gap-3">
                   <span className="text-4xl font-bold text-foreground">LKR {effectivePrice.toLocaleString()}</span>
                   {isOnSale && basePrice && (

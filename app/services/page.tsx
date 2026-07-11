@@ -374,9 +374,9 @@ export default function ServicesPage() {
 
               <h2 className="text-2xl font-bold text-foreground mb-3">{selectedService.name}</h2>
 
-              {/* Price */}
+              {/* Price - hidden */}
               {(selectedService.price && Number(selectedService.price) > 0) && (
-                <div className="flex items-baseline gap-2 mb-3">
+                <div className="flex items-baseline gap-2 mb-3 hidden">
                   <span className="text-2xl font-bold text-foreground">
                     LKR {(selectedService.sale_price && Number(selectedService.sale_price) > 0
                       ? Number(selectedService.sale_price)

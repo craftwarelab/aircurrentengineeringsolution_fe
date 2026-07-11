@@ -744,9 +744,6 @@ function FeaturedProductsSection() {
                   <p className="text-sm font-semibold text-foreground line-clamp-2 group-hover:text-primary transition-colors text-left">
                     {p.name}
                   </p>
-                  {displayPrice > 0 && (
-                    <p className="text-xs text-muted-foreground">${displayPrice.toLocaleString()}</p>
-                  )}
                 </div>
               </button>
             );

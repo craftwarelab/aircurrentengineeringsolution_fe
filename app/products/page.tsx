@@ -261,8 +261,8 @@ export default function ProductsPage() {
                   </div>
                 )}
 
-                {/* Price Range */}
-                <div>
+                {/* Price Range - hidden */}
+                <div className="hidden">
                   <h4 className="font-semibold mb-3">Price Range</h4>
                   <div className="space-y-3">
                     <div className="flex gap-2">
@@ -374,7 +374,7 @@ export default function ProductsPage() {
                             </div>
                           )}
                          {product.sale_price && (
-                           <div className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium">SALE</div>
+                           <div className="absolute top-3 right-3 bg-red-500 text-white text-xs px-2 py-0.5 rounded-full font-medium hidden">SALE</div>
                          )}
                        </div>
 
@@ -398,17 +398,7 @@ export default function ProductsPage() {
                           {product.short_description || product.description}
                         </p>
 
-                        {displayPrice && (
-                          <div className="mt-4 mb-4">
-                            <div className="flex items-baseline gap-2">
-                              <span className="text-3xl font-bold text-foreground">${displayPrice.toLocaleString()}</span>
-                              {product.sale_price && product.price && (
-                                <span className="text-sm text-muted-foreground line-through">${product.price.toLocaleString()}</span>
-                              )}
-                            </div>
-                            <p className="text-xs text-muted-foreground">Starting price • Contact for quote</p>
-                          </div>
-                        )}
+
                       </div>
 
                       <div className="px-6 pb-6">
@@ -502,15 +492,15 @@ export default function ProductsPage() {
                   <span key={c.id} className="text-xs px-2.5 py-0.5 bg-accent/10 text-accent rounded-full">{c.name}</span>
                 ))}
                 {selectedProduct.sale_price && (
-                  <span className="text-xs px-2.5 py-0.5 bg-red-100 text-red-600 rounded-full font-medium">SALE</span>
+                  <span className="text-xs px-2.5 py-0.5 bg-red-100 text-red-600 rounded-full font-medium hidden">SALE</span>
                 )}
               </div>
 
               <h2 className="text-xl font-bold text-gray-900 mb-1">{selectedProduct.name}</h2>
 
-              {/* Price */}
+              {/* Price - hidden */}
               {(selectedProduct.sale_price || selectedProduct.price) && (
-                <div className="flex items-baseline gap-2 mb-3">
+                <div className="flex items-baseline gap-2 mb-3 hidden">
                   <span className="text-2xl font-bold text-gray-900">
                     ${(selectedProduct.sale_price || selectedProduct.price || 0).toLocaleString()}
                   </span>

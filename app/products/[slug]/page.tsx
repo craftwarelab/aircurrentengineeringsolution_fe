@@ -241,8 +241,8 @@ export default async function ProductPage({
                 )}
               </div>
 
-              {/* Price */}
-              <div className="flex items-baseline gap-3">
+              {/* Price - hidden */}
+              <div className="flex items-baseline gap-3 hidden">
                 <span className="text-4xl font-bold text-foreground">
                   ${displayPrice.toLocaleString()}
                 </span>
@@ -252,7 +252,7 @@ export default async function ProductPage({
                   </span>
                 )}
               </div>
-              <p className="text-sm text-muted-foreground -mt-4">
+              <p className="text-sm text-muted-foreground -mt-4 hidden">
                 Starting price · Contact us for a custom quote
               </p>
 
