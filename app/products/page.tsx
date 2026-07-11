@@ -299,8 +299,8 @@ export default function ProductsPage() {
                   >
                     <option value="name-asc">Name: A to Z</option>
                     <option value="name-desc">Name: Z to A</option>
-                    <option value="price-low">Price: Low to High</option>
-                    <option value="price-high">Price: High to Low</option>
+                    <option value="price-low" className="hidden">Price: Low to High</option>
+                    <option value="price-high" className="hidden">Price: High to Low</option>
                   </select>
                 </div>
 
