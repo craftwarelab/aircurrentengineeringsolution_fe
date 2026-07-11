@@ -803,9 +803,9 @@ function FeaturedProductsSection() {
               <h2 className="text-2xl font-bold text-foreground mb-1">{selected.name}</h2>
               {selected.model && <p className="text-sm text-muted-foreground mb-3">Model: {selected.model}</p>}
 
-              {/* Price */}
+              {/* Price - hidden */}
               {(Number(selected.sale_price) > 0 || Number(selected.price) > 0) && (
-                <div className="flex items-baseline gap-2 mb-4">
+                <div className="flex items-baseline gap-2 mb-4 hidden">
                   <span className="text-2xl font-bold">${(Number(selected.sale_price) || Number(selected.price)).toLocaleString()}</span>
                   {selected.sale_price && Number(selected.sale_price) < Number(selected.price) && (
                     <span className="text-base text-muted-foreground line-through">${Number(selected.price).toLocaleString()}</span>
