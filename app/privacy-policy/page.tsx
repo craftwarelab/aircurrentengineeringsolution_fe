@@ -215,29 +215,6 @@ export default function PrivacyPolicy() {
             </p>
           </div>
 
-          {/* Contact Us */}
-          <div className="mb-12">
-            <h2 className="text-3xl font-bold text-foreground mb-6">
-              Contact Us
-            </h2>
-            <p className="text-muted-foreground mb-4">
-              If you have any questions about this Privacy Policy, please contact us:
-            </p>
-            <ul className="list-disc list-inside space-y-2 text-muted-foreground">
-              <li>
-                <strong>Email:</strong> 
-                <a href="mailto:privacy@aircurrentengineeringsolution.com" className="text-accent hover:underline">
-                  privacy@aircurrentengineeringsolution.com
-                </a>
-              </li>
-              <li>
-                <strong>Phone:</strong> +94 70 153 3195
-              </li>
-              <li>
-                <strong>Address:</strong> Colombo 7, Sri Lanka
-              </li>
-            </ul>
-          </div>
         </div>
       </section>
 
