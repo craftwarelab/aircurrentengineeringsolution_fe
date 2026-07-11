@@ -67,6 +67,22 @@ export default function Footer() {
                   Projects
                 </Link>
               </li>
+              <li>
+                <Link
+                  href="/faqs"
+                  className="hover:text-accent transition-colors"
+                >
+                  FAQs
+                </Link>
+              </li>
+              <li>
+                <Link
+                  href="/inquiries"
+                  className="hover:text-accent transition-colors"
+                >
+                  Submit an Inquiry
+                </Link>
+              </li>
             </ul>
           </div>
 
