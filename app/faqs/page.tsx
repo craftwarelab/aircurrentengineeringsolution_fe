@@ -15,11 +15,16 @@ interface FAQ {
 
 // ─── Server-side data fetch ───────────────────────────────────────────────────
 
+const X_INTERNAL_API_HEADER = process.env.INTERNAL_API_KEY || '';
+
 async function getVisibleFAQs(): Promise<FAQ[]> {
   const base = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
   try {
     const res = await fetch(`${base}/faqs/visible`, {
-      cache: 'no-store', // always fetch live — ensures deactivated FAQs disappear and newly activated ones appear immediately
+      cache: 'no-store',
+      ...(X_INTERNAL_API_HEADER && {
+        headers: { 'X-Internal-Api': X_INTERNAL_API_HEADER },
+      }),
     });
     if (!res.ok) return [];
     const json = await res.json();
